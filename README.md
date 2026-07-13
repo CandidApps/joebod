@@ -1,36 +1,102 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# JOEbod — Fitness & Health
 
-## Getting Started
+Mobile-first gym + health companion for Joe Dix. **JOE***bod*** — one word. Data stays on-device (`localStorage`). Built with Next.js for **Vercel**.
 
-First, run the development server:
+## Local development
 
 ```bash
+cd eclipse
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+App runs at **http://localhost:3001** (port pinned so candidIQ can keep 3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Phone use (iPhone + Android)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Deploy to Vercel (below) or use your phone on the same Wi‑Fi: `http://YOUR-PC-IP:3001`
+2. **iPhone (Safari):** Share → **Add to Home Screen**
+3. **Android (Chrome):** Menu → **Install app** / **Add to Home screen**
 
-## Learn More
+Opens fullscreen like a native app. Light/Dark toggle is top-right on every screen.
 
-To learn more about Next.js, take a look at the following resources:
+## Deploy / backup on Vercel
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### What to upload
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Upload the **`eclipse`** folder (this Next.js app), not the parent “Fitness and Health App” prototype HTML.
 
-## Deploy on Vercel
+**Path on your PC:**  
+`c:\Users\joedi\OneDrive\Documents\GitHub\Fitness and Health App\eclipse`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Option A — GitHub + Vercel (recommended backup)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Create a new GitHub repo (e.g. `joebod`).
+2. From this folder:
+
+```bash
+cd "c:\Users\joedi\OneDrive\Documents\GitHub\Fitness and Health App\eclipse"
+git add .
+git commit -m "JOEbod mobile fitness and health app"
+git branch -M main
+git remote add origin https://github.com/YOUR_USERNAME/joebod.git
+git push -u origin main
+```
+
+3. Go to [vercel.com/new](https://vercel.com/new) → **Import** that GitHub repo.
+4. Vercel settings:
+
+| Setting | Value |
+|--------|--------|
+| Framework Preset | Next.js |
+| Root Directory | `.` (repo root = eclipse) |
+| Build Command | `npm run build` |
+| Output | (leave default — Next.js) |
+| Install Command | `npm install` |
+| Node.js | 20.x (default) |
+| Environment Variables | **None required** for this MVP |
+
+5. Click **Deploy**. You’ll get a URL like `https://joebod.vercel.app`.
+
+### Option B — Vercel CLI (no GitHub yet)
+
+```bash
+cd "c:\Users\joedi\OneDrive\Documents\GitHub\Fitness and Health App\eclipse"
+npm i -g vercel
+vercel login
+vercel
+```
+
+Accept defaults (Next.js). For production: `vercel --prod`.
+
+### After deploy
+
+- Open the Vercel URL on your phone → Add to Home Screen  
+- Re-deploy happens automatically on every `git push` (Option A)  
+- No secrets/API keys needed for current localStorage MVP  
+
+### Notes
+
+- App data is **per browser / per device** (not synced to Vercel).  
+- Clearing site data on the phone erases logs.  
+- This is a backup of the **code**, not a cloud database of your health logs.
+
+## Google Health / Fitbit
+
+See **[docs/GOOGLE_HEALTH_BRYAN_HANDOFF.md](docs/GOOGLE_HEALTH_BRYAN_HANDOFF.md)** for the full Joe + Bryan walkthrough (Google Cloud, OAuth, Vercel env vars).
+
+Quick env template: `.env.example`
+
+| Env var | Purpose |
+|---------|---------|
+| `GOOGLE_HEALTH_CLIENT_ID` | OAuth client ID |
+| `GOOGLE_HEALTH_CLIENT_SECRET` | OAuth client secret |
+| `GOOGLE_HEALTH_REDIRECT_URI` | Exact callback URL |
+| `JOEBOD_TOKEN_SECRET` | Encrypts refresh-token cookie |
+
+## Modes
+
+| Mode | Tabs |
+|------|------|
+| **Fitness** | Home, Log, History, Settings |
+| **Health** | Dashboard, Labs, Genetics, Conditions, Meds, Sleep, Nutrition, Account |
