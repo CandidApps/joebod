@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { saveWearableSnapshot, type WearableSnapshot } from '@/lib/wearables';
+import { syncGoogleHealthToWearable } from '@/lib/google-health/sync-client';
 
 type Status = { configured: boolean; connected: boolean };
 
@@ -26,7 +26,7 @@ export function GoogleHealthConnectCard() {
     const gh = params.get('gh');
     if (!gh) return;
     const notes: Record<string, string> = {
-      connected: 'Google Health connected. Tap Sync to pull Fitbit vitals.',
+      connected: 'Google Health connected. Syncing vitals…',
       denied: 'Permission was denied.',
       state: 'OAuth state mismatch — try Connect again.',
       error: 'OAuth failed — check env vars and redirect URI.',
@@ -40,37 +40,14 @@ export function GoogleHealthConnectCard() {
   const sync = async () => {
     setBusy(true);
     setMessage(null);
-    try {
-      const res = await fetch('/api/google-health/sync', { method: 'POST' });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        error?: string;
-        snapshot?: Omit<WearableSnapshot, 'source' | 'updatedAt' | 'connected'>;
-        updatedAt?: string;
-      };
-      if (!res.ok || !json.snapshot) {
-        setMessage(json.error ?? 'Sync failed');
-        return;
-      }
-      saveWearableSnapshot({
-        source: 'google-health',
-        connected: true,
-        updatedAt: json.updatedAt ?? new Date().toISOString(),
-        restingHr: json.snapshot.restingHr,
-        currentHr: json.snapshot.currentHr,
-        steps: json.snapshot.steps,
-        calories: json.snapshot.calories,
-        spo2: json.snapshot.spo2,
-        sleepMinutes: json.snapshot.sleepMinutes,
-      });
+    const result = await syncGoogleHealthToWearable();
+    if (result.ok) {
       setMessage('Synced Fitbit / Google Health vitals to this device.');
-      window.dispatchEvent(new Event('joebod-wearable-updated'));
-    } catch {
-      setMessage('Network error during sync.');
-    } finally {
-      setBusy(false);
-      void refreshStatus();
+    } else {
+      setMessage(result.error);
     }
+    setBusy(false);
+    void refreshStatus();
   };
 
   const disconnect = async () => {
@@ -88,8 +65,8 @@ export function GoogleHealthConnectCard() {
     <div className="card glass mb14">
       <div className="h-supp-name">Fitbit / Google Health</div>
       <div className="h-supp-note" style={{ marginTop: 6 }}>
-        Connect the Google account linked to your Fitbit. Bryan sets Vercel secrets; you complete Google
-        Cloud + consent. Full walkthrough:{' '}
+        Connect the Google account linked to your Fitbit. After you connect once, vitals sync
+        automatically each time you open the app. Full walkthrough:{' '}
         <code style={{ fontSize: 11 }}>docs/GOOGLE_HEALTH_BRYAN_HANDOFF.md</code>
       </div>
 
@@ -116,12 +93,22 @@ export function GoogleHealthConnectCard() {
           href="/api/google-health/auth"
           style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
         >
-          Connect
+          {status?.connected ? 'Reconnect' : 'Connect'}
         </a>
-        <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void sync()}>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          disabled={busy || !status?.connected}
+          onClick={() => void sync()}
+        >
           Sync now
         </button>
-        <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void disconnect()}>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          disabled={busy || !status?.connected}
+          onClick={() => void disconnect()}
+        >
           Disconnect
         </button>
       </div>

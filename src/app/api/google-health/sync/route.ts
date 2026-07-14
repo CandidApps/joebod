@@ -13,11 +13,12 @@ export async function POST() {
   const jar = await cookies();
   const sealed = jar.get(TOKEN_COOKIE)?.value;
   if (!sealed) {
-    return NextResponse.json({ error: 'Not connected' }, { status: 401 });
+    // 200 + ok:false — expected state; avoids Chrome "Failed to load resource" noise
+    return NextResponse.json({ ok: false, error: 'Not connected — tap Connect first.' });
   }
   const refresh = decryptToken(sealed);
   if (!refresh) {
-    return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+    return NextResponse.json({ ok: false, error: 'Invalid session — tap Connect again.' });
   }
 
   try {

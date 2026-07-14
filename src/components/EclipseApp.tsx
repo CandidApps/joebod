@@ -13,6 +13,7 @@ import {
   labelForDayType,
   listSessions,
 } from '@/lib/fitness-store';
+import { syncGoogleHealthToWearable } from '@/lib/google-health/sync-client';
 import type { FitnessTab, HealthTab, Mode, WorkoutSession } from '@/lib/types';
 import { formatDuration } from '@/lib/storage';
 
@@ -68,6 +69,8 @@ export function EclipseApp() {
       }
     };
     boot();
+    // Auto-sync Fitbit / Google Health once per open when already connected
+    void syncGoogleHealthToWearable();
     return () => {
       cancelled = true;
     };
