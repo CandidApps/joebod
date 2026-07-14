@@ -12,6 +12,7 @@ export function RestTimer({ onComplete }: Props) {
   const [remaining, setRemaining] = useState<number | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
   const [customValue, setCustomValue] = useState('90');
+  const [justDone, setJustDone] = useState(false);
 
   useEffect(() => {
     setDefaultSec(getDefaultRestSec());
@@ -21,8 +22,10 @@ export function RestTimer({ onComplete }: Props) {
     if (remaining == null) return;
     if (remaining <= 0) {
       setRemaining(null);
+      setJustDone(true);
       onComplete?.();
       if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([120, 60, 120]);
+      window.setTimeout(() => setJustDone(false), 2000);
       return;
     }
     const id = window.setInterval(() => setRemaining((r) => (r == null ? r : r - 0.25)), 250);
@@ -34,14 +37,18 @@ export function RestTimer({ onComplete }: Props) {
     setDefaultSec(sec);
     setRemaining(sec);
     setCustomOpen(false);
+    setJustDone(false);
   };
+
+  const displayClass =
+    remaining != null ? 'rest-timer-display ticking' : justDone ? 'rest-timer-display done' : 'rest-timer-display';
 
   return (
     <div className="timer-card glass">
       <div className="timer-card-head">
         <span className="timer-card-title">Rest Timer</span>
-        <span style={{ fontFamily: 'var(--font-mono)', color: remaining != null ? 'var(--h-teal)' : 'var(--text-dim)' }}>
-          {remaining == null ? 'Ready' : formatRestDisplay(remaining)}
+        <span className={displayClass}>
+          {remaining == null ? (justDone ? 'Done' : 'Ready') : formatRestDisplay(remaining)}
         </span>
       </div>
       <div className="rest-presets">
@@ -55,12 +62,12 @@ export function RestTimer({ onComplete }: Props) {
             {sec === 60 ? '1:00' : sec === 90 ? '1:30' : sec === 120 ? '2:00' : '3:00'}
           </button>
         ))}
-        <button type="button" onClick={() => setCustomOpen((v) => !v)}>
+        <button type="button" id="restCustomBtn" onClick={() => setCustomOpen((v) => !v)}>
           Custom
         </button>
       </div>
       {customOpen ? (
-        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <div className="rest-custom-row">
           <input
             type="number"
             inputMode="numeric"
@@ -69,23 +76,19 @@ export function RestTimer({ onComplete }: Props) {
             value={customValue}
             onChange={(e) => setCustomValue(e.target.value)}
             placeholder="seconds"
-            style={{
-              flex: 1,
-              minHeight: 44,
-              borderRadius: 10,
-              border: '1px solid var(--border)',
-              background: 'rgba(0,0,0,0.25)',
-              padding: '8px 12px',
-              color: 'var(--text)',
-            }}
           />
-          <button type="button" className="btn btn-primary" onClick={() => start(Number(customValue) || 90)}>
+          <button type="button" className="btn btn-save" onClick={() => start(Number(customValue) || 90)}>
             Go
           </button>
         </div>
       ) : null}
       {remaining != null ? (
-        <button type="button" className="btn btn-ghost" style={{ width: '100%', marginTop: 10 }} onClick={() => setRemaining(null)}>
+        <button
+          type="button"
+          className="btn btn-add"
+          style={{ width: '100%', marginTop: 10 }}
+          onClick={() => setRemaining(null)}
+        >
           Cancel rest
         </button>
       ) : null}

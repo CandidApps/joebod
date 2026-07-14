@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Oswald, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
+import './fitness-eclipse.css';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -58,7 +59,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" data-theme="dark" className={`${inter.variable} ${oswald.variable} ${jetbrains.variable}`}>
+    <html
+      lang="en"
+      data-theme="dark"
+      suppressHydrationWarning
+      className={`${inter.variable} ${oswald.variable} ${jetbrains.variable}`}
+    >
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

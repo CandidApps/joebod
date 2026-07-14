@@ -20,8 +20,8 @@ export function WorkoutLog({ session, onChange }: Props) {
     <div>
       <div className="page-header">
         <div>
-          <div className="brand">LOG</div>
-          <div className="sub">Track sets, then rest</div>
+          <div className="view-brand">Log</div>
+          <div className="view-sub">Track sets, beat last time</div>
         </div>
       </div>
 

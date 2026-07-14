@@ -13,6 +13,7 @@ import {
   labelForDayType,
   listSessions,
 } from '@/lib/fitness-store';
+import { FITNESS_GOALS, getFitnessGoals, toggleFitnessGoal, type FitnessGoalsState } from '@/lib/fitness-goals';
 import { syncGoogleHealthToWearable } from '@/lib/google-health/sync-client';
 import type { FitnessTab, HealthTab, Mode, WorkoutSession } from '@/lib/types';
 import { formatDuration } from '@/lib/storage';
@@ -100,19 +101,21 @@ export function EclipseApp() {
       <InstallBanner />
 
       {mode === 'fitness' ? (
-        fitnessTab === 'dashboard' ? (
-          <FitnessDashboard
-            session={session}
-            onChange={setSession}
-            onOpenLog={() => setFitnessTab('log')}
-          />
-        ) : fitnessTab === 'log' ? (
-          <WorkoutLog session={session} onChange={setSession} />
-        ) : fitnessTab === 'history' ? (
-          <HistoryView />
-        ) : (
-          <SettingsView />
-        )
+        <div className="fitness-mode">
+          {fitnessTab === 'dashboard' ? (
+            <FitnessDashboard
+              session={session}
+              onChange={setSession}
+              onOpenLog={() => setFitnessTab('log')}
+            />
+          ) : fitnessTab === 'log' ? (
+            <WorkoutLog session={session} onChange={setSession} />
+          ) : fitnessTab === 'history' ? (
+            <HistoryView />
+          ) : (
+            <SettingsView />
+          )}
+        </div>
       ) : (
         <HealthViews tab={healthTab} onTab={setHealthTab} />
       )}
@@ -170,14 +173,14 @@ function HistoryView() {
     <div>
       <div className="page-header">
         <div>
-          <div className="brand">HISTORY</div>
-          <div className="sub">Progress over time</div>
+          <div className="view-brand">History</div>
+          <div className="view-sub">Progress over time</div>
         </div>
       </div>
       {sessions.length === 0 ? (
-        <p className="empty">Completed workouts will show up here.</p>
+        <p className="recent-empty">Completed workouts will show up here.</p>
       ) : (
-        <div className="log-list">
+        <div className="history-daylist glass" style={{ padding: '6px 14px' }}>
           {sessions.map((s) => (
             <div key={s.id} className="log-row">
               <div>
@@ -202,20 +205,52 @@ function SettingsView() {
   const [variant, setVariant] = useState(() =>
     typeof window === 'undefined' ? ('gradient' as const) : readBrandVariant(),
   );
+  const [goals, setGoals] = useState<FitnessGoalsState>(() =>
+    typeof window === 'undefined' ? { primary: null, secondary: [] } : getFitnessGoals(),
+  );
 
   return (
     <div>
       <div className="page-header">
         <div>
-          <BrandMark />
-          <div className="sub">Settings</div>
+          <div className="view-brand">Settings</div>
+          <div className="view-sub">Make it yours</div>
         </div>
       </div>
 
-      <div className="card glass mb14">
-        <div className="h-supp-name">Logo variants</div>
-        <div className="h-supp-note" style={{ marginTop: 6 }}>
-          Pick a JOEbod look. Neon green + blue flavors.
+      <div className="settings-block glass">
+        <div className="settings-block-title">Fitness Goals</div>
+        <div className="edit-note" style={{ marginBottom: 12 }}>
+          Tap once to set as primary goal. Tap any other to add as secondary. Tap again to remove.
+        </div>
+        <div>
+          {FITNESS_GOALS.map((g) => {
+            const isPrimary = goals.primary === g.id;
+            const isSecondary = goals.secondary.includes(g.id);
+            return (
+              <button
+                key={g.id}
+                type="button"
+                className={`goal-opt${isPrimary ? ' goal-primary' : ''}${isSecondary ? ' goal-secondary' : ''}`}
+                style={{ width: '100%', textAlign: 'left', border: '1px solid var(--border)', marginBottom: 8 }}
+                onClick={() => setGoals(toggleFitnessGoal(g.id))}
+              >
+                <div className="goal-opt-text">
+                  <span className="goal-opt-label">{g.label}</span>
+                  <span className="goal-opt-desc">{g.desc}</span>
+                </div>
+                {isPrimary ? <span className="goal-badge primary">Primary</span> : null}
+                {isSecondary ? <span className="goal-badge secondary">Secondary</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="settings-block glass">
+        <div className="settings-block-title">Logo variants</div>
+        <div className="edit-note" style={{ marginBottom: 12 }}>
+          Pick a JOEbod look for the brand mark elsewhere in the app.
         </div>
         <div className="logo-grid">
           {BRAND_VARIANTS.map((v) => (
@@ -242,32 +277,28 @@ function SettingsView() {
         </div>
       </div>
 
-      <div className="card glass mb14">
-        <div className="h-supp-name">Appearance</div>
-        <div className="h-supp-note" style={{ marginTop: 6 }}>
+      <div className="settings-block glass">
+        <div className="settings-block-title">Appearance</div>
+        <div className="edit-note">
           Use Light / Dark in the top-right on any screen. Your choice is saved on this device.
         </div>
       </div>
 
       <GoogleHealthConnectCard />
 
-      <div className="card glass mb14">
-        <div className="h-supp-name">Local-first data</div>
-        <div className="h-supp-note" style={{ marginTop: 6 }}>
-          Workouts, sleep, meds, nutrition, BP, and weight are stored in this phone&apos;s browser
-          (localStorage). Clearing site data will erase logs.
+      <div className="settings-block glass">
+        <div className="settings-block-title">Rest Timer</div>
+        <div className="edit-note">
+          Use the Rest Timer presets on Home/Log. Your last choice is remembered automatically. Sound /
+          vibrate options work when your phone allows them (system volume + vibration settings).
         </div>
       </div>
-      <div className="card glass mb14">
-        <div className="h-supp-name">Rest timer defaults</div>
-        <div className="h-supp-note" style={{ marginTop: 6 }}>
-          Use the Rest Timer presets on Home/Log. Your last choice is remembered automatically.
-        </div>
-      </div>
-      <div className="card glass">
-        <div className="h-supp-name">Vercel hosting</div>
-        <div className="h-supp-note" style={{ marginTop: 6 }}>
-          Deploy JOEbod to Vercel, then Add to Home Screen from Safari/Chrome for gym use.
+
+      <div className="settings-block glass">
+        <div className="settings-block-title">Local-first data</div>
+        <div className="edit-note">
+          Workouts are stored in this phone&apos;s browser (localStorage). Clearing site data will erase
+          logs.
         </div>
       </div>
     </div>
