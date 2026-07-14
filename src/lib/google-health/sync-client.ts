@@ -7,7 +7,13 @@ export type SyncClientResult =
 /** Pull Google Health vitals into localStorage. No-ops with ok:false if not connected. */
 export async function syncGoogleHealthToWearable(): Promise<SyncClientResult> {
   try {
-    const res = await fetch('/api/google-health/sync', { method: 'POST' });
+    const now = new Date();
+    const civilDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const res = await fetch('/api/google-health/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ civilDate }),
+    });
     const json = (await res.json()) as {
       ok?: boolean;
       error?: string;

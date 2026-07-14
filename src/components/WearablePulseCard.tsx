@@ -47,7 +47,7 @@ export function WearablePulseCard() {
           <div className="wearable-stat-val">{snap.restingHr ?? '—'} bpm</div>
         </div>
         <div>
-          <span className="h-metric-label">Steps</span>
+          <span className="h-metric-label">Steps today</span>
           <div className="wearable-stat-val">{snap.steps?.toLocaleString() ?? '—'}</div>
         </div>
         <div>
