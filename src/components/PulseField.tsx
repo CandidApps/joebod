@@ -26,10 +26,13 @@ export function PulseField({ bpm = 72, className = '', compact = false }: Props)
 
     void (async () => {
       const mod = await import('p5');
-      const P5 = mod.default;
+      const P5 = (mod as { default?: new (...args: never[]) => unknown }).default ?? mod;
       if (cancelled || !host) return;
 
-      sketch = new P5((p: any) => {
+      // React Strict Mode remounts — clear any leftover canvas
+      host.replaceChildren();
+
+      sketch = new (P5 as new (sketch: (p: any) => void, node: HTMLElement) => { remove: () => void })((p: any) => {
         const particles: { a: number; r: number; s: number; w: number }[] = [];
         const particleCount = compact ? 14 : 28;
 

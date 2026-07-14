@@ -33,8 +33,8 @@ export function decryptToken(payload: string): string | null {
   }
 }
 
-export function buildAuthUrl(state: string): string {
-  const { clientId, redirectUri } = getGoogleHealthConfig();
+export function buildAuthUrl(state: string, redirectUri: string): string {
+  const { clientId } = getGoogleHealthConfig();
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
@@ -56,8 +56,8 @@ export type TokenResponse = {
   token_type: string;
 };
 
-export async function exchangeCode(code: string): Promise<TokenResponse> {
-  const { clientId, clientSecret, redirectUri } = getGoogleHealthConfig();
+export async function exchangeCode(code: string, redirectUri: string): Promise<TokenResponse> {
+  const { clientId, clientSecret } = getGoogleHealthConfig();
   const body = new URLSearchParams({
     code,
     client_id: clientId,

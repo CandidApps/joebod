@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { TOKEN_COOKIE, getGoogleHealthConfig } from '@/lib/google-health/config';
+import { TOKEN_COOKIE, getGoogleHealthConfig, resolveRedirectUri } from '@/lib/google-health/config';
 import { encryptToken, exchangeCode } from '@/lib/google-health/oauth';
 
 export async function GET(req: NextRequest) {
@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const tokens = await exchangeCode(code);
+    const redirectUri = resolveRedirectUri(origin);
+    const tokens = await exchangeCode(code, redirectUri);
     if (!tokens.refresh_token) {
       return NextResponse.redirect(`${origin}/?gh=norefresh`);
     }
