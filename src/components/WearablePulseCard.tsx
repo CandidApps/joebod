@@ -17,17 +17,19 @@ export function WearablePulseCard() {
 
   if (!snap) return null;
 
-  const bpm = snap.currentHr ?? snap.restingHr ?? 72;
+  // Prefer live HR; fall back to resting. Never use SpO₂ for the bpm glyph.
+  const bpm = snap.currentHr ?? snap.restingHr;
+  const bpmLabel = snap.currentHr != null ? 'bpm' : snap.restingHr != null ? 'resting' : 'bpm';
   const connected = snap.connected || snap.source === 'google-health';
 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
         <div className="today-pulse-wrap" style={{ margin: 0, flex: '0 0 auto' }}>
-          <PulseField bpm={bpm} compact />
+          <PulseField bpm={bpm ?? 72} compact />
           <div className="wearable-bpm wearable-bpm-compact">
-            <strong>{bpm}</strong>
-            <span>bpm</span>
+            <strong>{bpm ?? '—'}</strong>
+            <span>{bpmLabel}</span>
           </div>
         </div>
         <div style={{ minWidth: 0 }}>
@@ -43,8 +45,16 @@ export function WearablePulseCard() {
       </div>
       <div className="wearable-stats">
         <div>
+          <span className="h-metric-label">Live HR</span>
+          <div className="wearable-stat-val">
+            {snap.currentHr != null ? `${snap.currentHr} bpm` : '—'}
+          </div>
+        </div>
+        <div>
           <span className="h-metric-label">Resting</span>
-          <div className="wearable-stat-val">{snap.restingHr ?? '—'} bpm</div>
+          <div className="wearable-stat-val">
+            {snap.restingHr != null ? `${snap.restingHr} bpm` : '—'}
+          </div>
         </div>
         <div>
           <span className="h-metric-label">Steps today</span>

@@ -30,6 +30,33 @@ function civilDayRange(isoDate?: string): { start: { date: CivilDate }; end: { d
   return { start: { date: start }, end: { date: addCivilDays(start, 1) } };
 }
 
+function padDate(d: CivilDate): string {
+  return `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`;
+}
+
+function num(v: unknown): number | null {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string' && v.trim() && !Number.isNaN(Number(v))) return Number(v);
+  return null;
+}
+
+/** Plausible adult HR window — SpO₂ % can land here (90–100), so we filter that separately. */
+function asBpm(v: number | null): number | null {
+  if (v == null || !Number.isFinite(v)) return null;
+  const bpm = Math.round(v);
+  if (bpm < 35 || bpm > 220) return null;
+  return bpm;
+}
+
+/** Normalize SpO2 to whole percent 0–100. */
+function asSpo2Percent(v: number | null): number | null {
+  if (v == null || !Number.isFinite(v)) return null;
+  let x = v;
+  if (x > 0 && x <= 1) x *= 100;
+  if (x < 50 || x > 100) return null;
+  return Math.round(x);
+}
+
 async function listDataPoints(
   accessToken: string,
   dataType: string,
@@ -52,7 +79,69 @@ async function listDataPoints(
   return Array.isArray(json.dataPoints) ? json.dataPoints : [];
 }
 
-/** Today's step total via dailyRollUp (sum of all intervals), not a partial page of minute chunks. */
+/** Reconciled stream matches what Google Health / Fitbit surfaces after merging sources. */
+async function reconcileDataPoints(
+  accessToken: string,
+  dataType: string,
+  opts?: { pageSize?: number; filter?: string },
+): Promise<DataPoint[]> {
+  const params = new URLSearchParams();
+  params.set('pageSize', String(opts?.pageSize ?? 50));
+  if (opts?.filter) params.set('filter', opts.filter);
+
+  const url = `https://health.googleapis.com/v4/users/me/dataTypes/${encodeURIComponent(dataType)}/dataPoints:reconcile?${params}`;
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+    },
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    // Fall back to raw list if reconcile unavailable
+    return listDataPoints(accessToken, dataType, opts);
+  }
+  const json = (await res.json()) as { dataPoints?: DataPoint[] };
+  return Array.isArray(json.dataPoints) ? json.dataPoints : [];
+}
+
+/**
+ * Strict BPM from heart-rate / daily-resting-heart-rate only.
+ * Never reads percentage / averagePercentage (those are SpO₂).
+ */
+function extractBeatsPerMinute(point: DataPoint): number | null {
+  const hr = point.heartRate as Record<string, unknown> | undefined;
+  if (hr && typeof hr === 'object') {
+    // Required field on HeartRate — do not fall back to value/percentage
+    const bpm = asBpm(num(hr.beatsPerMinute));
+    if (bpm != null) return bpm;
+  }
+
+  const resting = point.dailyRestingHeartRate as Record<string, unknown> | undefined;
+  if (resting && typeof resting === 'object') {
+    const bpm = asBpm(num(resting.beatsPerMinute));
+    if (bpm != null) return bpm;
+  }
+
+  return null;
+}
+
+function pickLatestBpm(points: DataPoint[], avoid?: number | null): number | null {
+  for (const p of points) {
+    const bpm = extractBeatsPerMinute(p);
+    if (bpm == null) continue;
+    // Avoid treating a SpO₂ % that leaked into another field as heart rate
+    if (avoid != null && bpm === avoid && bpm >= 90 && bpm <= 100) continue;
+    return bpm;
+  }
+  // If every sample matched avoid, return first valid BPM anyway
+  for (const p of points) {
+    const bpm = extractBeatsPerMinute(p);
+    if (bpm != null) return bpm;
+  }
+  return null;
+}
+
 async function fetchTodaySteps(accessToken: string, civilDate?: string): Promise<number | null> {
   const range = civilDayRange(civilDate);
   const res = await fetch(
@@ -78,8 +167,7 @@ async function fetchTodaySteps(accessToken: string, civilDate?: string): Promise
   const json = (await res.json()) as {
     rollupDataPoints?: Array<{ steps?: { countSum?: string | number } }>;
   };
-  const points = json.rollupDataPoints ?? [];
-  for (const p of points) {
+  for (const p of json.rollupDataPoints ?? []) {
     const sum = num(p.steps?.countSum);
     if (sum != null) return Math.round(sum);
   }
@@ -94,7 +182,7 @@ async function sumTodayStepIntervals(accessToken: string, civilDate?: string): P
   let found = false;
   for (const p of points) {
     const steps = p.steps as Record<string, unknown> | undefined;
-    const count = num(steps?.count) ?? num(steps?.value);
+    const count = num(steps?.count);
     if (count != null) {
       total += count;
       found = true;
@@ -103,60 +191,20 @@ async function sumTodayStepIntervals(accessToken: string, civilDate?: string): P
   return found ? Math.round(total) : null;
 }
 
-function padDate(d: CivilDate): string {
-  return `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`;
-}
-
-function num(v: unknown): number | null {
-  if (typeof v === 'number' && Number.isFinite(v)) return v;
-  if (typeof v === 'string' && v.trim() && !Number.isNaN(Number(v))) return Number(v);
-  return null;
-}
-
-/** Normalize SpO2 to whole percent 0–100 (API uses 0–100; guard against 0–1 fractions). */
-function asSpo2Percent(v: number | null): number | null {
-  if (v == null || !Number.isFinite(v)) return null;
-  let x = v;
-  if (x > 0 && x <= 1) x *= 100;
-  if (x < 50 || x > 100) return null; // reject nonsense readings
-  return Math.round(x);
-}
-
-function pickHr(points: DataPoint[]): number | null {
-  for (const p of points) {
-    const hr = (p.heartRate ?? p.dailyRestingHeartRate) as Record<string, unknown> | undefined;
-    if (hr) {
-      const bpm =
-        num(hr.beatsPerMinute) ??
-        num(hr.bpm) ??
-        num(hr.value) ??
-        num((hr as { averageBeatsPerMinute?: unknown }).averageBeatsPerMinute);
-      if (bpm != null) return Math.round(bpm);
-    }
-  }
-  return null;
-}
-
-/**
- * Prefer Fitbit-style daily SpO2 (overnight average). Fallback: latest valid sample.
- */
 function pickSpo2(dailyPoints: DataPoint[], samplePoints: DataPoint[]): number | null {
   for (const p of dailyPoints) {
     const o2 = p.dailyOxygenSaturation as Record<string, unknown> | undefined;
     if (!o2) continue;
-    const avg = asSpo2Percent(num(o2.averagePercentage) ?? num(o2.percentage));
+    const avg = asSpo2Percent(num(o2.averagePercentage));
     if (avg != null) return avg;
   }
 
-  const samples: number[] = [];
   for (const p of samplePoints) {
-    const o2 = (p.oxygenSaturation ?? p.spo2) as Record<string, unknown> | undefined;
+    const o2 = p.oxygenSaturation as Record<string, unknown> | undefined;
     if (!o2) continue;
-    const v = asSpo2Percent(num(o2.percentage) ?? num(o2.value));
-    if (v != null) samples.push(v);
+    const v = asSpo2Percent(num(o2.percentage));
+    if (v != null) return v;
   }
-  // Samples are newest-first; use the most recent valid reading
-  if (samples.length > 0) return samples[0];
   return null;
 }
 
@@ -181,21 +229,35 @@ export async function fetchHealthSnapshot(
   opts?: { civilDate?: string },
 ): Promise<HealthSnapshot> {
   const civilDate = opts?.civilDate;
+  const day = civilDate && /^\d{4}-\d{2}-\d{2}$/.test(civilDate) ? civilDate : padDate(localCivilDate());
+
   const [hrPoints, restingPoints, steps, dailySpo2, sampleSpo2, sleepPoints] = await Promise.all([
-    listDataPoints(accessToken, 'heart-rate', { pageSize: 20 }),
-    listDataPoints(accessToken, 'daily-resting-heart-rate', { pageSize: 7 }),
+    // Recent reconciled BPM — same merged stream Google Health / Fitbit uses
+    reconcileDataPoints(accessToken, 'heart-rate', { pageSize: 100 }),
+    reconcileDataPoints(accessToken, 'daily-resting-heart-rate', {
+      pageSize: 14,
+      filter: `dailyRestingHeartRate.date >= "${day}"`,
+    }).then(async (pts) =>
+      pts.length > 0
+        ? pts
+        : reconcileDataPoints(accessToken, 'daily-resting-heart-rate', { pageSize: 14 }),
+    ),
     fetchTodaySteps(accessToken, civilDate),
-    listDataPoints(accessToken, 'daily-oxygen-saturation', { pageSize: 14 }),
-    listDataPoints(accessToken, 'oxygen-saturation', { pageSize: 50 }),
-    listDataPoints(accessToken, 'sleep', { pageSize: 7 }),
+    reconcileDataPoints(accessToken, 'daily-oxygen-saturation', { pageSize: 14 }),
+    reconcileDataPoints(accessToken, 'oxygen-saturation', { pageSize: 20 }),
+    reconcileDataPoints(accessToken, 'sleep', { pageSize: 7 }),
   ]);
 
+  const spo2 = pickSpo2(dailySpo2, sampleSpo2);
+  const currentHr = pickLatestBpm(hrPoints, spo2);
+  const restingHr = pickLatestBpm(restingPoints, spo2) ?? null;
+
   return {
-    currentHr: pickHr(hrPoints),
-    restingHr: pickHr(restingPoints) ?? pickHr(hrPoints),
+    currentHr,
+    restingHr,
     steps,
     calories: null,
-    spo2: pickSpo2(dailySpo2, sampleSpo2),
+    spo2,
     sleepMinutes: pickSleepMinutes(sleepPoints),
   };
 }
