@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
       path: '/',
-      maxAge: 60 * 60 * 24 * 30,
+      maxAge: 60 * 60 * 24 * 180,
     });
     res.cookies.delete('joebod_gh_oauth_state');
     return res;

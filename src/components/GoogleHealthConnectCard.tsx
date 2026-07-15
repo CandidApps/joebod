@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { clearWearableSnapshot } from '@/lib/wearables';
 import { syncGoogleHealthToWearable } from '@/lib/google-health/sync-client';
 
 type Status = { configured: boolean; connected: boolean };
@@ -35,14 +36,26 @@ export function GoogleHealthConnectCard() {
     };
     setMessage(notes[gh] ?? null);
     window.history.replaceState({}, '', window.location.pathname);
+    if (gh === 'connected') {
+      void (async () => {
+        const result = await syncGoogleHealthToWearable({ clearFirst: true });
+        if (result.ok) setMessage(`Connected. ${result.summary ?? 'Synced.'}`);
+        else setMessage(result.error);
+        void refreshStatus();
+      })();
+    }
   }, []);
 
   const sync = async () => {
     setBusy(true);
-    setMessage(null);
-    const result = await syncGoogleHealthToWearable();
+    setMessage('Clearing cache and pulling fresh Google Health…');
+    const result = await syncGoogleHealthToWearable({ clearFirst: true });
     if (result.ok) {
-      setMessage('Synced Fitbit / Google Health vitals to this device.');
+      const warn =
+        result.warnings && result.warnings.length
+          ? ` Notes: ${result.warnings.slice(0, 2).join(' | ')}`
+          : '';
+      setMessage(`Fresh sync: ${result.summary ?? 'ok'}.${warn}`);
     } else {
       setMessage(result.error);
     }
@@ -50,10 +63,18 @@ export function GoogleHealthConnectCard() {
     void refreshStatus();
   };
 
+  const clearCache = () => {
+    clearWearableSnapshot();
+    window.dispatchEvent(new Event('joebod-wearable-updated'));
+    setMessage('Local vitals cache cleared. Tap Sync now (open Fitbit app first).');
+  };
+
   const disconnect = async () => {
     setBusy(true);
     try {
       await fetch('/api/google-health/disconnect', { method: 'POST' });
+      clearWearableSnapshot();
+      window.dispatchEvent(new Event('joebod-wearable-updated'));
       setMessage('Disconnected.');
     } finally {
       setBusy(false);
@@ -65,9 +86,8 @@ export function GoogleHealthConnectCard() {
     <div className="card glass mb14">
       <div className="h-supp-name">Fitbit / Google Health</div>
       <div className="h-supp-note" style={{ marginTop: 6 }}>
-        Connect the Google account linked to your Fitbit. After you connect once, vitals sync
-        automatically each time you open the app. Full walkthrough:{' '}
-        <code style={{ fontSize: 11 }}>docs/GOOGLE_HEALTH_BRYAN_HANDOFF.md</code>
+        Sync now clears local cache first, then re-fetches. Open the Fitbit app so the watch can
+        upload before syncing — JOEbod can only show what Google Health already has.
       </div>
 
       <div className="h-supp-note" style={{ marginTop: 10 }}>
@@ -102,6 +122,9 @@ export function GoogleHealthConnectCard() {
           onClick={() => void sync()}
         >
           Sync now
+        </button>
+        <button type="button" className="btn btn-ghost" disabled={busy} onClick={clearCache}>
+          Clear cache
         </button>
         <button
           type="button"

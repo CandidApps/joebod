@@ -19,7 +19,8 @@ export function readTheme(): ThemeMode {
 
 export function applyTheme(theme: ThemeMode): void {
   document.documentElement.setAttribute('data-theme', theme);
-  const color = theme === 'light' ? '#F3F5F8' : '#07090D';
+  document.documentElement.style.colorScheme = theme;
+  const color = theme === 'light' ? '#F3F5F8' : '#08090C';
   let meta = document.querySelector('meta[name="theme-color"]');
   if (!meta) {
     meta = document.createElement('meta');
@@ -32,23 +33,21 @@ export function applyTheme(theme: ThemeMode): void {
   } catch {
     // ignore
   }
-  window.dispatchEvent(new CustomEvent('joebod-theme-updated', { detail: theme }));
 }
 
 export function ThemeToggle() {
   const [theme, setTheme] = useState<ThemeMode>('dark');
 
   useEffect(() => {
-    const initial = readTheme();
-    setTheme(initial);
-    applyTheme(initial);
-    const onUpdate = (e: Event) => {
-      const next = (e as CustomEvent<ThemeMode>).detail;
-      if (next === 'light' || next === 'dark') setTheme(next);
-    };
-    window.addEventListener('joebod-theme-updated', onUpdate);
-    return () => window.removeEventListener('joebod-theme-updated', onUpdate);
+    const stored = readTheme();
+    setTheme(stored);
+    applyTheme(stored);
   }, []);
+
+  const setMode = (next: ThemeMode) => {
+    setTheme(next);
+    applyTheme(next);
+  };
 
   return (
     <div className="theme-toggle" role="group" aria-label="Color theme">
@@ -56,10 +55,7 @@ export function ThemeToggle() {
         type="button"
         className={`theme-btn${theme === 'light' ? ' active' : ''}`}
         aria-pressed={theme === 'light'}
-        onClick={() => {
-          applyTheme('light');
-          setTheme('light');
-        }}
+        onClick={() => setMode('light')}
       >
         Light
       </button>
@@ -67,10 +63,7 @@ export function ThemeToggle() {
         type="button"
         className={`theme-btn${theme === 'dark' ? ' active' : ''}`}
         aria-pressed={theme === 'dark'}
-        onClick={() => {
-          applyTheme('dark');
-          setTheme('dark');
-        }}
+        onClick={() => setMode('dark')}
       >
         Dark
       </button>

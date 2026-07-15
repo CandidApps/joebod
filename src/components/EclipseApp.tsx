@@ -14,7 +14,7 @@ import {
   listSessions,
 } from '@/lib/fitness-store';
 import { FITNESS_GOALS, getFitnessGoals, toggleFitnessGoal, type FitnessGoalsState } from '@/lib/fitness-goals';
-import { syncGoogleHealthToWearable } from '@/lib/google-health/sync-client';
+import { startGoogleHealthLiveSync } from '@/lib/google-health/sync-client';
 import type { FitnessTab, HealthTab, Mode, WorkoutSession } from '@/lib/types';
 import { formatDuration } from '@/lib/storage';
 
@@ -70,10 +70,11 @@ export function EclipseApp() {
       }
     };
     boot();
-    // Auto-sync Fitbit / Google Health once per open when already connected
-    void syncGoogleHealthToWearable();
+    // Keep Fitbit / Google Health vitals fresh (30s — as close to watch as the cloud API allows)
+    const stopLive = startGoogleHealthLiveSync(30_000);
     return () => {
       cancelled = true;
+      stopLive();
     };
   }, []);
 

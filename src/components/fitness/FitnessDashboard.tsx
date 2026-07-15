@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { WearablePulseCard } from '@/components/WearablePulseCard';
 import { RestTimer } from '@/components/fitness/RestTimer';
+import { SessionEditSheet } from '@/components/fitness/SessionEditSheet';
 import { Stopwatch } from '@/components/fitness/Stopwatch';
 import { WeekCard } from '@/components/fitness/WeekCard';
 import { WorkoutTimer } from '@/components/fitness/WorkoutTimer';
@@ -10,11 +11,12 @@ import type { WorkoutSession } from '@/lib/types';
 import {
   computeStreak,
   countSessionsInRange,
+  deleteSession,
+  getOrCreateSessionForDayType,
   labelForDayType,
   listSessions,
 } from '@/lib/fitness-store';
 import { getFitnessGoals, goalLabel } from '@/lib/fitness-goals';
-import { todayKey } from '@/lib/storage';
 
 type Props = {
   session: WorkoutSession;
@@ -30,7 +32,10 @@ const DAY_CSS: Record<string, { color: string; glow: string }> = {
 };
 
 export function FitnessDashboard({ session, onChange, onOpenLog }: Props) {
+  const [listTick, setListTick] = useState(0);
+  const [editing, setEditing] = useState<WorkoutSession | null>(null);
   const sessions = listSessions();
+  void listTick;
   const now = new Date();
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() - now.getDay());
@@ -47,11 +52,19 @@ export function FitnessDashboard({ session, onChange, onOpenLog }: Props) {
     return () => window.removeEventListener('joebod-goals-updated', sync);
   }, []);
 
+  const removeRecent = (id: string) => {
+    if (!window.confirm('Delete this lift from Recent PRs & Lifts?')) return;
+    deleteSession(id);
+    if (session.id === id) {
+      onChange(getOrCreateSessionForDayType(session.dayType));
+    }
+    setListTick((t) => t + 1);
+  };
+
   const recent = sessions
     .filter(
       (s) =>
-        s.date !== todayKey() &&
-        (s.endedAt || s.exercises.some((e) => e.sets.some((x) => x.completed))),
+        s.endedAt || s.exercises.some((e) => e.sets.some((x) => x.completed)),
     )
     .slice(0, 8);
 
@@ -64,7 +77,7 @@ export function FitnessDashboard({ session, onChange, onOpenLog }: Props) {
     <div>
       <header className="page-header">
         <div>
-          <div className="view-brand">Eclipse</div>
+          <div className="view-brand">JOEbod</div>
           <div className="view-sub">Let&apos;s move.</div>
         </div>
       </header>
@@ -132,6 +145,9 @@ export function FitnessDashboard({ session, onChange, onOpenLog }: Props) {
       </button>
 
       <div className="section-title">Recent PRs &amp; Lifts</div>
+      <p className="recent-hint">
+        PR = personal record (a best lift). Tap Edit to fix weight, reps, date, or set type.
+      </p>
       {recent.length === 0 ? (
         <p className="recent-empty">No completed sessions yet. Log your first set today.</p>
       ) : (
@@ -143,14 +159,37 @@ export function FitnessDashboard({ session, onChange, onOpenLog }: Props) {
             );
             return (
               <div key={s.id} className="recent-item glass">
+                <button
+                  type="button"
+                  className="recent-del"
+                  aria-label={`Delete ${labelForDayType(s.dayType)} on ${s.date}`}
+                  onClick={() => removeRecent(s.id)}
+                >
+                  ×
+                </button>
                 <div className="rname">{labelForDayType(s.dayType)}</div>
                 <div className="rmeta">{sets} sets</div>
                 <div className="rdate">{s.date}</div>
+                <button type="button" className="recent-edit" onClick={() => setEditing(s)}>
+                  Edit
+                </button>
               </div>
             );
           })}
         </div>
       )}
+
+      {editing ? (
+        <SessionEditSheet
+          session={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(next) => {
+            if (session.id === next.id) onChange(next);
+            setListTick((t) => t + 1);
+            setEditing(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

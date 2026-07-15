@@ -1,8 +1,20 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { TOKEN_COOKIE, getGoogleHealthConfig } from '@/lib/google-health/config';
-import { decryptToken, refreshAccessToken } from '@/lib/google-health/oauth';
+import { decryptToken, encryptToken, refreshAccessToken } from '@/lib/google-health/oauth';
 import { fetchHealthSnapshot } from '@/lib/google-health/client';
+
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 180;
+
+function setRefreshCookie(res: NextResponse, refreshToken: string) {
+  res.cookies.set(TOKEN_COOKIE, encryptToken(refreshToken), {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: COOKIE_MAX_AGE,
+  });
+}
 
 export async function POST(req: NextRequest) {
   const { configured } = getGoogleHealthConfig();
@@ -13,12 +25,17 @@ export async function POST(req: NextRequest) {
   const jar = await cookies();
   const sealed = jar.get(TOKEN_COOKIE)?.value;
   if (!sealed) {
-    // 200 + ok:false — expected state; avoids Chrome "Failed to load resource" noise
     return NextResponse.json({ ok: false, error: 'Not connected — tap Connect first.' });
   }
   const refresh = decryptToken(sealed);
   if (!refresh) {
-    return NextResponse.json({ ok: false, error: 'Invalid session — tap Connect again.' });
+    const res = NextResponse.json({
+      ok: false,
+      reconnect: true,
+      error: 'Invalid session — tap Connect again.',
+    });
+    res.cookies.delete(TOKEN_COOKIE);
+    return res;
   }
 
   let civilDate: string | undefined;
@@ -33,16 +50,29 @@ export async function POST(req: NextRequest) {
 
   try {
     const tokens = await refreshAccessToken(refresh);
-    const snapshot = await fetchHealthSnapshot(tokens.access_token, { civilDate });
-    return NextResponse.json({
+    const { snapshot, meta } = await fetchHealthSnapshot(tokens.access_token, { civilDate });
+    const res = NextResponse.json({
       ok: true,
       snapshot,
+      meta,
       updatedAt: new Date().toISOString(),
     });
+    setRefreshCookie(res, tokens.refresh_token ?? refresh);
+    return res;
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Sync failed' },
-      { status: 502 },
+    const message = err instanceof Error ? err.message : 'Sync failed';
+    const needsReconnect = /refresh failed|invalid_grant|401|403/i.test(message);
+    const res = NextResponse.json(
+      {
+        ok: false,
+        reconnect: needsReconnect,
+        error: needsReconnect
+          ? 'Google session expired — tap Connect once to renew.'
+          : message,
+      },
+      { status: needsReconnect ? 401 : 502 },
     );
+    if (needsReconnect) res.cookies.delete(TOKEN_COOKIE);
+    return res;
   }
 }

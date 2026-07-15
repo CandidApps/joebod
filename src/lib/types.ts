@@ -14,17 +14,23 @@ export type HealthTab =
 
 export type DayType = 'push' | 'pull' | 'legs' | 'rest' | 'zone2';
 
+export type SetType = 'working' | 'warmup' | 'drop' | 'failure' | 'backoff';
+
 export type WorkoutSet = {
   id: string;
   reps: number;
   weight: number;
   completed: boolean;
+  type?: SetType;
+  rpe?: number | null;
+  singleArm?: boolean;
 };
 
 export type ExerciseLog = {
   id: string;
   name: string;
   sets: WorkoutSet[];
+  notes?: string;
 };
 
 export type WorkoutSession = {

@@ -2,6 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { getDefaultRestSec, setDefaultRestSec } from '@/lib/fitness-store';
+import {
+  formatRestClock,
+  getRestTimerState,
+  markRestDone,
+  remainingRestSec,
+  startRestTimer,
+  stopRestTimer,
+  type RestTimerState,
+} from '@/lib/rest-timer-store';
 
 type Props = {
   onComplete?: () => void;
@@ -9,46 +18,61 @@ type Props = {
 
 export function RestTimer({ onComplete }: Props) {
   const [defaultSec, setDefaultSec] = useState(90);
-  const [remaining, setRemaining] = useState<number | null>(null);
+  const [state, setState] = useState<RestTimerState>(() => getRestTimerState());
+  const [tick, setTick] = useState(0);
   const [customOpen, setCustomOpen] = useState(false);
   const [customValue, setCustomValue] = useState('90');
-  const [justDone, setJustDone] = useState(false);
 
   useEffect(() => {
     setDefaultSec(getDefaultRestSec());
+    const sync = () => setState(getRestTimerState());
+    sync();
+    window.addEventListener('joebod-rest-updated', sync);
+    return () => window.removeEventListener('joebod-rest-updated', sync);
   }, []);
 
   useEffect(() => {
-    if (remaining == null) return;
-    if (remaining <= 0) {
-      setRemaining(null);
-      setJustDone(true);
-      onComplete?.();
-      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([120, 60, 120]);
-      window.setTimeout(() => setJustDone(false), 2000);
-      return;
-    }
-    const id = window.setInterval(() => setRemaining((r) => (r == null ? r : r - 0.25)), 250);
+    if (state.status !== 'ticking') return;
+    const id = window.setInterval(() => {
+      const left = remainingRestSec();
+      if (left == null || left <= 0) {
+        markRestDone();
+        onComplete?.();
+        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([120, 60, 120]);
+        window.setTimeout(() => stopRestTimer(), 4000);
+      }
+      setTick((t) => t + 1);
+    }, 250);
     return () => window.clearInterval(id);
-  }, [remaining, onComplete]);
+  }, [state.status, onComplete]);
+
+  void tick;
+  const remaining = remainingRestSec(state);
 
   const start = (sec: number) => {
     setDefaultRestSec(sec);
     setDefaultSec(sec);
-    setRemaining(sec);
     setCustomOpen(false);
-    setJustDone(false);
+    startRestTimer(sec);
   };
 
   const displayClass =
-    remaining != null ? 'rest-timer-display ticking' : justDone ? 'rest-timer-display done' : 'rest-timer-display';
+    state.status === 'ticking'
+      ? 'rest-timer-display ticking'
+      : state.status === 'done'
+        ? 'rest-timer-display done'
+        : 'rest-timer-display';
 
   return (
     <div className="timer-card glass">
       <div className="timer-card-head">
         <span className="timer-card-title">Rest Timer</span>
         <span className={displayClass}>
-          {remaining == null ? (justDone ? 'Done' : 'Ready') : formatRestDisplay(remaining)}
+          {state.status === 'ticking' && remaining != null
+            ? formatRestClock(remaining)
+            : state.status === 'done'
+              ? 'Done'
+              : 'Ready'}
         </span>
       </div>
       <div className="rest-presets">
@@ -56,13 +80,13 @@ export function RestTimer({ onComplete }: Props) {
           <button
             key={sec}
             type="button"
-            className={defaultSec === sec && remaining == null ? 'active' : ''}
+            className={defaultSec === sec && state.status === 'idle' ? 'active' : ''}
             onClick={() => start(sec)}
           >
             {sec === 60 ? '1:00' : sec === 90 ? '1:30' : sec === 120 ? '2:00' : '3:00'}
           </button>
         ))}
-        <button type="button" id="restCustomBtn" onClick={() => setCustomOpen((v) => !v)}>
+        <button type="button" onClick={() => setCustomOpen((v) => !v)}>
           Custom
         </button>
       </div>
@@ -82,23 +106,11 @@ export function RestTimer({ onComplete }: Props) {
           </button>
         </div>
       ) : null}
-      {remaining != null ? (
-        <button
-          type="button"
-          className="btn btn-add"
-          style={{ width: '100%', marginTop: 10 }}
-          onClick={() => setRemaining(null)}
-        >
+      {state.status === 'ticking' ? (
+        <button type="button" className="btn btn-add" style={{ width: '100%', marginTop: 10 }} onClick={() => stopRestTimer()}>
           Cancel rest
         </button>
       ) : null}
     </div>
   );
-}
-
-function formatRestDisplay(sec: number): string {
-  const s = Math.max(0, Math.ceil(sec));
-  const mm = Math.floor(s / 60);
-  const ss = String(s % 60).padStart(2, '0');
-  return `${mm}:${ss}`;
 }

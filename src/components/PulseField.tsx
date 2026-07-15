@@ -3,15 +3,15 @@
 import { useEffect, useRef } from 'react';
 
 type Props = {
-  bpm?: number;
+  bpm?: number | null;
   className?: string;
   compact?: boolean;
 };
 
 /** Ambient p5 heartbeat field — driven by bpm when available */
-export function PulseField({ bpm = 72, className = '', compact = false }: Props) {
+export function PulseField({ bpm = null, className = '', compact = false }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const bpmRef = useRef(bpm);
+  const bpmRef = useRef<number | null>(bpm);
 
   useEffect(() => {
     bpmRef.current = bpm;
@@ -68,9 +68,10 @@ export function PulseField({ bpm = 72, className = '', compact = false }: Props)
         };
 
         p.draw = () => {
-          const rate = Math.max(40, Math.min(180, bpmRef.current || 72));
+          const raw = bpmRef.current;
+          const rate = raw != null && raw > 0 ? Math.max(40, Math.min(180, raw)) : 48;
           const beat = (p.sin((p.millis() / 1000) * (rate / 60) * p.TWO_PI) + 1) / 2;
-          const pulse = 0.72 + beat * 0.38;
+          const pulse = raw != null && raw > 0 ? 0.72 + beat * 0.38 : 0.78 + beat * 0.12;
 
           const dark = document.documentElement.getAttribute('data-theme') !== 'light';
           p.clear();

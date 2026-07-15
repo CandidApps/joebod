@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, Oswald, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import './fitness-eclipse.css';
+import './fitness-log.css';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -46,7 +47,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: dark)', color: '#07090D' },
+    { media: '(prefers-color-scheme: dark)', color: '#08090C' },
     { media: '(prefers-color-scheme: light)', color: '#F3F5F8' },
   ],
   width: 'device-width',
