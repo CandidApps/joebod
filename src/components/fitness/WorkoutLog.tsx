@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { RestPill } from '@/components/fitness/RestPill';
-import { WorkoutTimer } from '@/components/fitness/WorkoutTimer';
 import {
   emptySet,
   getOrCreateSessionForDayType,
@@ -10,8 +9,19 @@ import {
   recentExerciseSessions,
   upsertSession,
 } from '@/lib/fitness-store';
+import { getFitnessPrefs, unitLabel } from '@/lib/fitness-prefs';
 import { startRestTimer } from '@/lib/rest-timer-store';
 import type { DayType, SetType, WorkoutSession, WorkoutSet } from '@/lib/types';
+
+function est1RM(weight: number, reps: number): number {
+  if (!weight || !reps) return 0;
+  return weight * (1 + reps / 30);
+}
+
+function fmtShortDate(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase();
+}
 
 const SET_TYPES: { id: SetType; label: string }[] = [
   { id: 'working', label: 'Working' },
@@ -117,6 +127,8 @@ export function WorkoutLog({ session, onChange }: Props) {
     return ((i + 1) / LOG_TABS.length) * 100;
   }, [dayType]);
 
+  const unit = unitLabel(getFitnessPrefs().unit);
+
   return (
     <div>
       <div className="page-header">
@@ -126,7 +138,19 @@ export function WorkoutLog({ session, onChange }: Props) {
         </div>
       </div>
 
-      <WorkoutTimer session={session} onChange={onChange} />
+      <div className="date-nav">
+        <button type="button" className="date-nav-btn" aria-label="Previous day" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15,6 9,12 15,18" />
+          </svg>
+        </button>
+        <div className="date-nav-pill">Today</div>
+        <button type="button" className="date-nav-btn" aria-label="Next day" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9,6 15,12 9,18" />
+          </svg>
+        </button>
+      </div>
 
       <div className="tabs" role="tablist" aria-label="Training day">
         {LOG_TABS.map((tab) => (
@@ -156,13 +180,25 @@ export function WorkoutLog({ session, onChange }: Props) {
             (h) => !(h.date === session.date && !session.endedAt),
           );
           const last = history[0];
-          const lastLabel = last
-            ? last.sets
-                .filter((s) => (s.type ?? 'working') !== 'warmup')
-                .map((s) => `${s.weight}×${s.reps}`)
-                .slice(0, 3)
-                .join('  ')
+          const workingLast = last?.sets.filter((s) => (s.type ?? 'working') !== 'warmup') ?? [];
+          const lastLabel = workingLast.length
+            ? `${workingLast[workingLast.length - 1].weight} ${unit} × ${workingLast[workingLast.length - 1].reps}`
             : null;
+          const lastSetsLine = workingLast
+            .map((s) => {
+              const fail = (s.type ?? 'working') === 'failure' ? ' (Failure)' : '';
+              return `${s.weight}${unit} × ${s.reps}${fail}`;
+            })
+            .join(', ');
+          const lastVol = workingLast.reduce(
+            (n, s) => n + s.weight * s.reps * (s.singleArm ? 2 : 1),
+            0,
+          );
+          const best1 = workingLast.reduce((best, s) => Math.max(best, est1RM(s.weight, s.reps)), 0);
+          const topWorking = workingLast.length
+            ? Math.max(...workingLast.map((s) => s.weight))
+            : 0;
+          const wuBase = topWorking > 0 ? Math.round(topWorking * 1.05) : 0;
 
           return (
             <div key={ex.id} className="card glass">
@@ -197,9 +233,50 @@ export function WorkoutLog({ session, onChange }: Props) {
               </button>
 
               <div className={`body-panel${isOpen ? ' open' : ''}`}>
-                {!last ? (
+                {last ? (
+                  <div className="compare-panel">
+                    <div className="compare-title">
+                      Last Time · {fmtShortDate(last.date)}
+                    </div>
+                    <div className="compare-setsline">{lastSetsLine}</div>
+                    <div className="compare-stats">
+                      <div className="compare-stat">
+                        <span className="compare-stat-label">Volume</span>
+                        <span className="compare-stat-value">
+                          {Math.round(lastVol)} {unit}
+                        </span>
+                      </div>
+                      <div className="compare-stat">
+                        <span className="compare-stat-label">Best Est. 1RM</span>
+                        <span className="compare-stat-value">
+                          {Math.round(best1)} {unit}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="compare-target">
+                      Target today: Beat last session&apos;s best working set. Try{' '}
+                      {wuBase || topWorking || '—'} {unit} for 8+ reps next time.
+                    </div>
+                  </div>
+                ) : (
                   <div className="edit-note" style={{ marginBottom: 12 }}>
                     No sessions logged yet — your first set here sets the baseline.
+                  </div>
+                )}
+
+                {wuBase > 0 ? (
+                  <div className="compare-panel">
+                    <div className="compare-title">Warm-up Suggestion · Based on {wuBase} {unit}</div>
+                    <div className="compare-stats" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                      {[0.4, 0.6, 0.8].map((pct) => (
+                        <div key={pct} className="compare-stat" style={{ textAlign: 'center' }}>
+                          <span className="compare-stat-label">{Math.round(pct * 100)}%</span>
+                          <span className="compare-stat-value">
+                            {Math.round((wuBase * pct) / 2.5) * 2.5} × {pct === 0.4 ? 8 : pct === 0.6 ? 5 : 3}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : null}
 
@@ -214,7 +291,7 @@ export function WorkoutLog({ session, onChange }: Props) {
                 >
                   <span className="set-num">#</span>
                   <span className="set-num" style={{ textAlign: 'center' }}>
-                    Weight (lb)
+                    Weight ({unit})
                   </span>
                   <span className="set-num" style={{ textAlign: 'center' }}>
                     Reps
@@ -387,24 +464,18 @@ export function WorkoutLog({ session, onChange }: Props) {
                   </div>
                 ) : (
                   history.map((h) => (
-                    <div
-                      key={`${ex.name}-${h.date}`}
-                      className="hist-row"
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        padding: '8px 0',
-                        borderBottom: '1px solid var(--border)',
-                        fontSize: 13,
-                      }}
-                    >
-                      <span>{h.date}</span>
+                    <div key={`${ex.name}-${h.date}`} className="hist-row">
+                      <span>{fmtShortDate(h.date)}</span>
                       <b>
                         {h.sets
-                          .map((s) => `${s.weight}×${s.reps}`)
+                          .map((s) => {
+                            const fail = (s.type ?? 'working') === 'failure' ? ' (Failure)' : '';
+                            return `${s.weight}x${s.reps}${fail}`;
+                          })
                           .slice(0, 4)
-                          .join(' · ')}
+                          .join(', ')}
                       </b>
+                      <span className="hist-edit">Edit</span>
                     </div>
                   ))
                 )}

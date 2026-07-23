@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getDefaultRestSec, setDefaultRestSec } from '@/lib/fitness-store';
+import { getFitnessPrefs } from '@/lib/fitness-prefs';
 import {
   formatRestClock,
   getRestTimerState,
@@ -14,9 +15,11 @@ import {
 
 type Props = {
   onComplete?: () => void;
+  /** Skip outer glass card + title (for dashboard accordion). */
+  embedded?: boolean;
 };
 
-export function RestTimer({ onComplete }: Props) {
+export function RestTimer({ onComplete, embedded = false }: Props) {
   const [defaultSec, setDefaultSec] = useState(90);
   const [state, setState] = useState<RestTimerState>(() => getRestTimerState());
   const [tick, setTick] = useState(0);
@@ -38,7 +41,30 @@ export function RestTimer({ onComplete }: Props) {
       if (left == null || left <= 0) {
         markRestDone();
         onComplete?.();
-        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([120, 60, 120]);
+        try {
+          const prefs = getFitnessPrefs();
+          if (prefs.restVibrate && typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate([120, 60, 120]);
+          }
+          if (prefs.restSound && typeof window !== 'undefined') {
+            const Ctx =
+              window.AudioContext ||
+              (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+            if (Ctx) {
+              const ctx = new Ctx();
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.frequency.value = 880;
+              gain.gain.value = 0.08;
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.start();
+              osc.stop(ctx.currentTime + 0.18);
+            }
+          }
+        } catch {
+          /* ignore prefs / audio failures */
+        }
         window.setTimeout(() => stopRestTimer(), 4000);
       }
       setTick((t) => t + 1);
@@ -63,10 +89,10 @@ export function RestTimer({ onComplete }: Props) {
         ? 'rest-timer-display done'
         : 'rest-timer-display';
 
-  return (
-    <div className="timer-card glass">
-      <div className="timer-card-head">
-        <span className="timer-card-title">Rest Timer</span>
+  const body = (
+    <>
+      <div className="timer-card-head" style={embedded ? { marginBottom: 10 } : undefined}>
+        {embedded ? null : <span className="timer-card-title">Rest Timer</span>}
         <span className={displayClass}>
           {state.status === 'ticking' && remaining != null
             ? formatRestClock(remaining)
@@ -111,6 +137,9 @@ export function RestTimer({ onComplete }: Props) {
           Cancel rest
         </button>
       ) : null}
-    </div>
+    </>
   );
+
+  if (embedded) return <div className="timer-card-inner">{body}</div>;
+  return <div className="timer-card glass">{body}</div>;
 }

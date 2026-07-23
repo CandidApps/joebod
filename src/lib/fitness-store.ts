@@ -46,11 +46,11 @@ export function dayTypeForDate(date = new Date()): DayType {
 export function labelForDayType(t: DayType): string {
   switch (t) {
     case 'push':
-      return 'Push Day';
+      return 'Push';
     case 'pull':
-      return 'Pull Day';
+      return 'Pull';
     case 'legs':
-      return 'Legs Day';
+      return 'Legs';
     case 'zone2':
       return 'Zone 2';
     default:
@@ -195,3 +195,43 @@ export function countSessionsInRange(sessions: WorkoutSession[], start: Date, en
     return active && s.date >= a && s.date <= b;
   }).length;
 }
+
+/** Volume in lb for completed (non-warmup) sets. */
+export function sessionVolumeLb(session: WorkoutSession): number {
+  let total = 0;
+  for (const ex of session.exercises) {
+    for (const s of ex.sets) {
+      if (!s.completed && !(s.weight > 0 && s.reps > 0)) continue;
+      if ((s.type ?? 'working') === 'warmup') continue;
+      const mult = s.singleArm ? 2 : 1;
+      total += s.weight * s.reps * mult;
+    }
+  }
+  return Math.round(total);
+}
+
+export function isSessionLogged(session: WorkoutSession): boolean {
+  return Boolean(
+    session.endedAt ||
+      session.durationSec > 0 ||
+      session.exercises.some((e) => e.sets.some((x) => x.completed || (x.weight > 0 && x.reps > 0))),
+  );
+}
+
+export function volumeByDayTypeLastDays(
+  sessions: WorkoutSession[],
+  days = 30,
+): Record<'push' | 'pull' | 'legs' | 'zone2', number> {
+  const out = { push: 0, pull: 0, legs: 0, zone2: 0 };
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const cut = todayKey(cutoff);
+  for (const s of sessions) {
+    if (!isSessionLogged(s) || s.date < cut) continue;
+    if (s.dayType === 'push' || s.dayType === 'pull' || s.dayType === 'legs' || s.dayType === 'zone2') {
+      out[s.dayType] += sessionVolumeLb(s);
+    }
+  }
+  return out;
+}
+

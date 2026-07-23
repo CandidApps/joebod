@@ -23,8 +23,8 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'JOEbod — Fitness & Health',
-  description: 'Daily fitness training and personal health companion for Joe Dix',
+  title: 'JOEbod — Fitness',
+  description: 'Daily fitness training companion for Joe Dix',
   applicationName: 'JOEbod',
   appleWebApp: {
     capable: true,

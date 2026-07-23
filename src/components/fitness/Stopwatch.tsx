@@ -10,7 +10,12 @@ function fmt(ms: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
 }
 
-export function Stopwatch() {
+type Props = {
+  /** Skip outer glass card + title (for dashboard accordion). */
+  embedded?: boolean;
+};
+
+export function Stopwatch({ embedded = false }: Props) {
   const [running, setRunning] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [accumulated, setAccumulated] = useState(0);
@@ -44,10 +49,10 @@ export function Stopwatch() {
   };
   const lap = () => setLaps((prev) => [elapsed, ...prev].slice(0, 20));
 
-  return (
-    <div className="timer-card glass">
-      <div className="timer-card-head">
-        <span className="timer-card-title">Stopwatch</span>
+  const body = (
+    <>
+      <div className="timer-card-head" style={embedded ? { marginBottom: 10 } : undefined}>
+        {embedded ? null : <span className="timer-card-title">Stopwatch</span>}
         <span className="timer-card-sub">{running ? 'Running' : elapsed > 0 ? 'Paused' : 'Ready'}</span>
       </div>
       <div className={`workout-timer-display${running ? ' running' : ''}`}>{fmt(elapsed)}</div>
@@ -88,6 +93,9 @@ export function Stopwatch() {
           ))}
         </div>
       ) : null}
-    </div>
+    </>
   );
+
+  if (embedded) return <div className="timer-card-inner">{body}</div>;
+  return <div className="timer-card glass">{body}</div>;
 }

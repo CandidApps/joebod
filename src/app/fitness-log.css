@@ -7,7 +7,15 @@
 .fitness-mode .tab{flex:0 0 auto; min-width:84px; text-align:center; padding:13px 10px; border-radius:14px; background:var(--surface); border:1px solid var(--border); font-family:var(--font-disp), Oswald, system-ui, sans-serif; font-weight:600; font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim); cursor:pointer; -webkit-backdrop-filter:blur(var(--blur-card)); backdrop-filter:blur(var(--blur-card)); white-space:nowrap;}
 .fitness-mode .tab.active{background:radial-gradient(120% 160% at 30% -20%, #fff7e6, var(--tab-color) 70%); box-shadow:0 8px 22px -10px var(--tab-glow); color:var(--tab-ink); border-color:transparent;}
 .fitness-mode .settings-tabs.tabs{margin-bottom:18px;}
-.fitness-mode .settings-tabs .tab.active{background:radial-gradient(140% 160% at 20% -20%, #fff9ee, var(--accent) 70%); color:var(--accent-ink); border-color:transparent; box-shadow:0 8px 22px -10px rgba(0,0,0,0.35);}
+.fitness-mode .settings-tabs .tab.active{
+  background: color-mix(in srgb, var(--accent-user) 78%, #fff 22%);
+  color: #081019;
+  border-color: transparent;
+  box-shadow: 0 8px 22px -10px var(--accent-user-glow);
+}
+html[data-theme='light'] .fitness-mode .settings-tabs .tab.active{
+  color: #f8fafc;
+}
 .fitness-mode .day-strip{height:3px; border-radius:3px; margin-bottom:20px; overflow:hidden; background:var(--border);}
 .fitness-mode .day-strip-fill{height:100%; width:100%;}
 

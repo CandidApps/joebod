@@ -50,21 +50,40 @@ export function writeBrandVariant(variant: BrandVariant): void {
   window.dispatchEvent(new Event('joebod-brand-updated'));
 }
 
+export function brandLogoFor(variant: BrandVariant): string {
+  return BRAND_VARIANTS.find((v) => v.id === variant)?.logo ?? '/brand/joebod-v3.png';
+}
+
 type Props = {
   className?: string;
   underline?: boolean;
+  /** Force a specific variant (Settings previews). Omit to follow the saved selection. */
   variant?: BrandVariant;
+  /** Prefer PNG asset when present; falls back to styled text. */
+  preferImage?: boolean;
+  size?: 'sm' | 'md' | 'lg';
 };
 
-export function BrandMark({ className = '', underline = true, variant }: Props) {
+export function BrandMark({
+  className = '',
+  underline = true,
+  variant,
+  preferImage = true,
+  size = 'md',
+}: Props) {
   const [active, setActive] = useState<BrandVariant>(variant ?? 'gradient');
+  const [imgOk, setImgOk] = useState(true);
 
   useEffect(() => {
     if (variant) {
       setActive(variant);
+      setImgOk(true);
       return;
     }
-    const sync = () => setActive(readBrandVariant());
+    const sync = () => {
+      setActive(readBrandVariant());
+      setImgOk(true);
+    };
     sync();
     window.addEventListener('joebod-brand-updated', sync);
     window.addEventListener('storage', sync);
@@ -74,9 +93,25 @@ export function BrandMark({ className = '', underline = true, variant }: Props) 
     };
   }, [variant]);
 
+  const sizeClass = size === 'lg' ? 'brand-size-lg' : size === 'sm' ? 'brand-size-sm' : 'brand-size-md';
+
+  if (preferImage && imgOk) {
+    return (
+      <div className={`brand-wrap brand-image-wrap ${sizeClass} ${className}`.trim()}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          className="brand-logo-img"
+          src={brandLogoFor(active)}
+          alt="JOEbod"
+          onError={() => setImgOk(false)}
+        />
+      </div>
+    );
+  }
+
   if (active === 'stacked') {
     return (
-      <div className={`brand-wrap brand-stacked ${className}`.trim()}>
+      <div className={`brand-wrap brand-stacked ${sizeClass} ${className}`.trim()}>
         <div className="brand brand-joe" aria-hidden>
           JOE
         </div>
@@ -104,7 +139,7 @@ export function BrandMark({ className = '', underline = true, variant }: Props) 
         : 'brand-underline brand-underline-duo';
 
   return (
-    <div className={`brand-wrap ${className}`.trim()}>
+    <div className={`brand-wrap ${sizeClass} ${className}`.trim()}>
       <div className="brand" aria-label="JOEbod">
         <span className={joeClass}>JOE</span>
         <span className={bodClass}>bod</span>
