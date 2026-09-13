@@ -5,7 +5,7 @@ const SESSIONS_KEY = 'eclipse-workout-sessions-v1';
 const REST_DEFAULT_KEY = 'eclipse-rest-default-v1';
 
 /** Exercise lists match Eclipse index.html Log tabs. */
-export const TEMPLATES: Record<Exclude<DayType, 'rest'>, string[]> = {
+export const TEMPLATES: Record<Exclude<DayType, 'rest' | 'custom'>, string[]> = {
   push: [
     'Machine Chest Press',
     'Incline Dumbbell Press',
@@ -33,7 +33,11 @@ export const TEMPLATES: Record<Exclude<DayType, 'rest'>, string[]> = {
   zone2: ['Zone 2 Walk / Bike'],
 };
 
-export const LOG_TABS: Exclude<DayType, 'rest' | 'zone2'>[] = ['push', 'pull', 'legs'];
+export const LOG_TABS: Exclude<DayType, 'rest' | 'zone2' | 'custom'>[] = [
+  'push',
+  'pull',
+  'legs',
+];
 
 export function dayTypeForDate(date = new Date()): DayType {
   const day = date.getDay(); // 0 Sun
@@ -53,6 +57,8 @@ export function labelForDayType(t: DayType): string {
       return 'Legs';
     case 'zone2':
       return 'Zone 2';
+    case 'custom':
+      return 'Coach';
     default:
       return 'Rest';
   }
@@ -71,7 +77,7 @@ export function emptySet(): WorkoutSet {
 }
 
 function emptyExercises(dayType: DayType): ExerciseLog[] {
-  if (dayType === 'rest') return [];
+  if (dayType === 'rest' || dayType === 'custom') return [];
   return TEMPLATES[dayType].map((name) => ({
     id: newId(),
     name,
@@ -113,6 +119,7 @@ export function getOrCreateSessionForDayType(dayType: DayType): WorkoutSession {
     id: newId(),
     date,
     dayType,
+    source: 'template',
     startedAt: null,
     endedAt: null,
     durationSec: 0,
@@ -129,6 +136,45 @@ export function getOrCreateSessionForDayType(dayType: DayType): WorkoutSession {
 export function upsertSession(session: WorkoutSession): void {
   const sessions = listSessions().filter((s) => s.id !== session.id);
   saveSessions([session, ...sessions]);
+}
+
+/** Create a new AI/Coach session for today without touching template day sessions. */
+export function createSessionFromAiWorkout(input: {
+  title: string;
+  dayType: DayType;
+  notes?: string;
+  exercises: { name: string; notes: string; sets: { reps: number; weight: number }[] }[];
+}): WorkoutSession {
+  const date = todayKey();
+  const dayType: DayType =
+    input.dayType === 'rest' ? 'custom' : input.dayType;
+  const created: WorkoutSession = {
+    id: newId(),
+    date,
+    dayType,
+    source: 'ai',
+    title: input.title.trim() || 'Coach workout',
+    coachNotes: input.notes?.trim() || '',
+    startedAt: null,
+    endedAt: null,
+    durationSec: 0,
+    exercises: input.exercises.map((ex) => ({
+      id: newId(),
+      name: ex.name,
+      notes: ex.notes ?? '',
+      sets: (ex.sets.length ? ex.sets : [{ reps: 10, weight: 0 }]).map((s) => ({
+        id: newId(),
+        reps: s.reps,
+        weight: s.weight,
+        completed: false,
+        type: 'working' as const,
+        rpe: null,
+        singleArm: false,
+      })),
+    })),
+  };
+  upsertSession(created);
+  return created;
 }
 
 export function deleteSession(sessionId: string): void {

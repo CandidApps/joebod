@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { GoogleHealthConnectCard } from '@/components/GoogleHealthConnectCard';
+import { ClaudeCoachCard } from '@/components/ClaudeCoachCard';
 import { BrandMark, BRAND_VARIANTS, readBrandVariant, writeBrandVariant } from '@/components/BrandMark';
 import { InstallBanner } from '@/components/InstallBanner';
 import { FitnessDashboard } from '@/components/fitness/FitnessDashboard';
 import { WorkoutLog } from '@/components/fitness/WorkoutLog';
+import { CoachView } from '@/components/fitness/CoachView';
 import {
   deleteSession,
   getOrCreateTodaySession,
@@ -36,7 +38,7 @@ const FITNESS_TABS: {
 }[] = [
   {
     id: 'dashboard',
-    label: 'Dashboard',
+    label: 'Home',
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
         <path d="M12 3.2 3 10.5V20a1 1 0 0 0 1 1h5.5v-6.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V21H20a1 1 0 0 0 1-1v-9.5L12 3.2Z" />
@@ -49,6 +51,21 @@ const FITNESS_TABS: {
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
         <path d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7V4Z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'coach',
+    label: 'Coach',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M12 3v3" />
+        <path d="M12 18v3" />
+        <path d="M3 12h3" />
+        <path d="M18 12h3" />
+        <circle cx="12" cy="12" r="5" />
+        <path d="M9.5 10.5h.01M14.5 10.5h.01" />
+        <path d="M9.5 14c.8.8 1.7 1.2 2.5 1.2s1.7-.4 2.5-1.2" />
       </svg>
     ),
   },
@@ -181,6 +198,13 @@ export function EclipseApp() {
           />
         ) : tab === 'log' ? (
           <WorkoutLog session={session} onChange={setSession} />
+        ) : tab === 'coach' ? (
+          <CoachView
+            onLoaded={(next) => {
+              setSession(next);
+              setTab('log');
+            }}
+          />
         ) : tab === 'history' ? (
           <HistoryView unit={prefs.unit} />
         ) : (
@@ -545,6 +569,7 @@ function SettingsView({
           </div>
 
           <GoogleHealthConnectCard />
+          <ClaudeCoachCard />
 
           <div className="settings-block glass">
             <div className="settings-block-title">Local-first data</div>

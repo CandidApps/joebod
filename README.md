@@ -27,7 +27,7 @@ Opens fullscreen like a native app. Light/Dark toggle is top-right on every scre
 Upload the **`eclipse`** folder (this Next.js app), not the parent “Fitness and Health App” prototype HTML.
 
 **Path on your PC:**  
-`c:\Users\joedi\OneDrive\Documents\GitHub\Fitness and Health App\eclipse`
+`C:\Github\Fitness and Health App\eclipse`
 
 ### Option A — GitHub + Vercel (recommended backup)
 
@@ -35,7 +35,7 @@ Upload the **`eclipse`** folder (this Next.js app), not the parent “Fitness an
 2. From this folder:
 
 ```bash
-cd "c:\Users\joedi\OneDrive\Documents\GitHub\Fitness and Health App\eclipse"
+cd "C:\Github\Fitness and Health App\eclipse"
 git add .
 git commit -m "JOEbod mobile fitness and health app"
 git branch -M main
@@ -54,14 +54,14 @@ git push -u origin main
 | Output | (leave default — Next.js) |
 | Install Command | `npm install` |
 | Node.js | 20.x (default) |
-| Environment Variables | **None required** for this MVP |
+| Environment Variables | See **Claude Coach** + Google Health below |
 
 5. Click **Deploy**. You’ll get a URL like `https://joebod.vercel.app`.
 
 ### Option B — Vercel CLI (no GitHub yet)
 
 ```bash
-cd "c:\Users\joedi\OneDrive\Documents\GitHub\Fitness and Health App\eclipse"
+cd "C:\Github\Fitness and Health App\eclipse"
 npm i -g vercel
 vercel login
 vercel
@@ -71,15 +71,27 @@ Accept defaults (Next.js). For production: `vercel --prod`.
 
 ### After deploy
 
-- Open the Vercel URL on your phone → Add to Home Screen  
+- Open the Vercel URL on your phone → **Add to Home Screen** (iPhone Safari / Android Chrome)  
 - Re-deploy happens automatically on every `git push` (Option A)  
-- No secrets/API keys needed for current localStorage MVP  
+- Set `ANTHROPIC_API_KEY` on Vercel so Coach works on your phone  
 
 ### Notes
 
 - App data is **per browser / per device** (not synced to Vercel).  
 - Clearing site data on the phone erases logs.  
 - This is a backup of the **code**, not a cloud database of your health logs.
+
+## Claude Coach
+
+On-demand workouts via Anthropic (Coach tab). Weekly Push / Pull / Legs templates stay unchanged until you tap **Load into Log**.
+
+| Env var | Purpose |
+|---------|---------|
+| `ANTHROPIC_API_KEY` | Server-only API key from [console.anthropic.com](https://console.anthropic.com/) |
+| `ANTHROPIC_MODEL` | Optional model override (default set in code) |
+
+**Local:** put the key in `.env.local`, restart `npm run dev`.  
+**Phone / Vercel:** Project → Settings → Environment Variables → add `ANTHROPIC_API_KEY` for Production (and Preview if you use it) → Redeploy.
 
 ## Google Health / Fitbit
 
@@ -98,5 +110,5 @@ Quick env template: `.env.example`
 
 | Mode | Tabs |
 |------|------|
-| **Fitness** | Home, Log, History, Settings |
+| **Fitness** | Home, Log, Coach, History, Settings |
 | **Health** | Dashboard, Labs, Genetics, Conditions, Meds, Sleep, Nutrition, Account |

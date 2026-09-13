@@ -58,17 +58,22 @@ export function WorkoutLog({ session, onChange }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState<string | null>(null);
 
-  const dayType = (LOG_TABS.includes(session.dayType as (typeof LOG_TABS)[number])
-    ? session.dayType
-    : 'push') as (typeof LOG_TABS)[number];
+  const isCoachSession = session.source === 'ai' || session.dayType === 'custom';
+
+  const dayType = (
+    LOG_TABS.includes(session.dayType as (typeof LOG_TABS)[number])
+      ? session.dayType
+      : 'push'
+  ) as (typeof LOG_TABS)[number];
 
   useEffect(() => {
+    if (isCoachSession) return;
     if (!LOG_TABS.includes(session.dayType as (typeof LOG_TABS)[number])) {
       onChange(getOrCreateSessionForDayType('push'));
     }
     // Intentionally depend on dayType only — parent setState identity may change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.dayType]);
+  }, [session.dayType, session.source]);
 
   const persist = (next: WorkoutSession) => {
     upsertSession(next);
@@ -134,9 +139,19 @@ export function WorkoutLog({ session, onChange }: Props) {
       <div className="page-header">
         <div>
           <div className="view-brand">Log</div>
-          <div className="view-sub">Track sets, beat last time</div>
+          <div className="view-sub">
+            {isCoachSession
+              ? session.title || 'Claude Coach session'
+              : 'Track sets, beat last time'}
+          </div>
         </div>
       </div>
+
+      {isCoachSession && session.coachNotes ? (
+        <div className="card glass mb14">
+          <div className="h-supp-note">{session.coachNotes}</div>
+        </div>
+      ) : null}
 
       <div className="date-nav">
         <button type="button" className="date-nav-btn" aria-label="Previous day" disabled>
@@ -158,14 +173,19 @@ export function WorkoutLog({ session, onChange }: Props) {
             key={tab}
             type="button"
             role="tab"
-            aria-selected={dayType === tab}
-            className={`tab${dayType === tab ? ' active' : ''}`}
-            style={dayType === tab ? TAB_STYLE[tab] : undefined}
+            aria-selected={!isCoachSession && dayType === tab}
+            className={`tab${!isCoachSession && dayType === tab ? ' active' : ''}`}
+            style={!isCoachSession && dayType === tab ? TAB_STYLE[tab] : undefined}
             onClick={() => switchTab(tab)}
           >
             {tab}
           </button>
         ))}
+        {isCoachSession ? (
+          <button type="button" role="tab" aria-selected className="tab active" disabled>
+            coach
+          </button>
+        ) : null}
       </div>
       <div className="day-strip">
         <div className="day-strip-fill" style={{ width: `${stripPct}%`, background: tabColor(dayType) }} />

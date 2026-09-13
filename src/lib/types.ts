@@ -1,6 +1,6 @@
-export type FitnessTab = 'dashboard' | 'log' | 'history' | 'settings';
+export type FitnessTab = 'dashboard' | 'log' | 'coach' | 'history' | 'settings';
 
-export type DayType = 'push' | 'pull' | 'legs' | 'zone2' | 'rest';
+export type DayType = 'push' | 'pull' | 'legs' | 'zone2' | 'rest' | 'custom';
 
 export type SetType = 'working' | 'warmup' | 'drop' | 'failure' | 'backoff';
 
@@ -26,6 +26,10 @@ export type WorkoutSession = {
   id: string;
   date: string;
   dayType: DayType;
+  /** template = weekly regimen; ai = Claude Coach */
+  source?: 'template' | 'ai';
+  title?: string;
+  coachNotes?: string;
   startedAt: string | null;
   endedAt: string | null;
   durationSec: number;
