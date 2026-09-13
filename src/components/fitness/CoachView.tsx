@@ -13,7 +13,16 @@ import type { WorkoutSession } from '@/lib/types';
 
 type Intensity = 'tough' | 'very_tough' | 'max';
 
-const FOCUS_CHIPS = ['Push', 'Pull', 'Legs', 'Core', 'Upper back', 'Shoulders', 'Conditioning'] as const;
+const FOCUS_CHIPS = [
+  'Push',
+  'Pull',
+  'Legs',
+  'Chest',
+  'Core',
+  'Upper back',
+  'Shoulders',
+  'Conditioning',
+] as const;
 
 type Props = {
   onLoaded: (session: WorkoutSession) => void;
