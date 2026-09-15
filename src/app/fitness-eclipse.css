@@ -416,24 +416,44 @@ html[data-theme='light'] .fitness-mode .session-sheet-date input{
 .fitness-mode .split-opt.selected .check{opacity:1;}
 
 .fitness-mode .schedule-grid{display:flex; flex-direction:column; gap:8px;}
-.fitness-mode .schedule-day-row{display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,0.04); border:1px solid var(--border); cursor:pointer;}
+.fitness-mode .schedule-day-row,
+.fitness-mode .schedule-row{display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,0.04); border:1px solid var(--border); cursor:pointer; width:100%; text-align:left; color:inherit; font:inherit;}
+.fitness-mode .schedule-row.open{border-color:var(--accent);}
+.fitness-mode .schedule-day,
 .fitness-mode .schedule-day-label{font-family:var(--font-disp), Oswald, system-ui, sans-serif; font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:0.8px; width:36px; flex:0 0 auto; color:var(--text-dim);}
+.fitness-mode .schedule-types{flex:1; font-size:13px; color:var(--text);}
 .fitness-mode .schedule-day-chips{display:flex; flex-wrap:wrap; gap:6px; flex:1;}
 .fitness-mode .schedule-chip{display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:5px 10px; border-radius:999px; background:var(--surface2);}
 .fitness-mode .schedule-chip .dot{width:7px; height:7px; border-radius:50%;}
 .fitness-mode .schedule-day-empty{font-size:11px; color:#6a6d75; font-style:italic;}
+.fitness-mode .split-opt{width:100%; text-align:left; color:inherit; font:inherit;}
+.fitness-mode .subtab{border:1px solid var(--border); background:rgba(255,255,255,0.05); color:var(--text-dim);}
+.fitness-mode button.color-swatch{padding:0; appearance:none;}
+.fitness-mode .summary-backdrop{position:fixed; inset:0; z-index:80; background:rgba(0,0,0,0.55); display:flex; align-items:flex-end; justify-content:center; padding:12px; opacity:0; pointer-events:none; transition:opacity .2s ease;}
+.fitness-mode .summary-backdrop.open{opacity:1; pointer-events:auto;}
+.fitness-mode .summary-sheet{width:min(520px,100%); max-height:88vh; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:22px 22px 16px 16px; padding:16px 16px 24px; box-shadow:0 -12px 40px rgba(0,0,0,0.45);}
+.fitness-mode .summary-sheet-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:14px;}
+.fitness-mode .summary-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:12px 0 16px;}
+.fitness-mode .summary-stat{background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:14px; padding:12px 10px; text-align:center;}
+.fitness-mode .summary-stat b{display:block; font-size:1.35rem; font-family:var(--font-disp), Oswald, system-ui, sans-serif;}
+.fitness-mode .summary-stat span{display:block; margin-top:4px; font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-dim);}
+.fitness-mode .summary-ex{padding:12px 0; border-bottom:1px solid var(--border);}
+.fitness-mode .summary-ex:last-child{border-bottom:none;}
+.fitness-mode .summary-pr{color:var(--good, #86efac); font-size:12px; font-weight:600;}
+.fitness-mode .summary-delta{color:var(--text-dim); font-size:12px; margin-top:4px;}
+.fitness-mode .summary-next{margin-top:8px; font-size:13px; line-height:1.45;}
+.fitness-mode .muscle-tag{display:inline-block; margin-top:4px; padding:3px 8px; border-radius:8px; border:1px solid var(--border); font-size:11px; color:var(--text-dim);}
 
 .fitness-mode .subtabs{display:flex; gap:6px; margin-bottom:14px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none;}
 .fitness-mode .subtabs::-webkit-scrollbar{display:none;}
 .fitness-mode .subtab{flex:0 0 auto; min-width:76px; text-align:center; padding:9px 12px; border-radius:11px; background:rgba(255,255,255,0.05); border:1px solid var(--border); font-size:12px; color:var(--text-dim); cursor:pointer; text-transform:uppercase; letter-spacing:0.6px; white-space:nowrap;}
 .fitness-mode .subtab.active{background:radial-gradient(140% 160% at 20% -20%, #fff9ee, var(--accent) 70%); color:var(--accent-ink); border-color:transparent;}
-.fitness-mode .edit-row{display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--border);}
+.fitness-mode .edit-row{display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--border); flex-wrap:wrap;}
 .fitness-mode .edit-row:last-of-type{border-bottom:none;}
-.fitness-mode .edit-row .edit-name{flex:1; background:rgba(255,255,255,0.05); border:1px solid transparent; border-radius:10px; color:var(--text); font-size:14px; padding:9px 11px;}
+.fitness-mode .edit-row .edit-name{flex:1; min-width:120px; background:rgba(255,255,255,0.05); border:1px solid transparent; border-radius:10px; color:var(--text); font-size:14px; padding:9px 11px;}
 .fitness-mode .edit-row .edit-name:focus{outline:none; border-color:var(--accent); background:rgba(255,255,255,0.08);}
 .fitness-mode .edit-ctrls{display:flex; gap:2px; flex:0 0 auto;}
 .fitness-mode .edit-ctrls button{background:transparent; border:none; color:var(--text-dim); width:30px; height:32px; cursor:pointer; border-radius:8px; display:flex; align-items:center; justify-content:center; padding:0;}
-.fitness-mode .edit-ctrls button svg{width:14px; height:14px; display:block;}
 .fitness-mode .edit-ctrls button:active{background:rgba(255,255,255,0.08);}
 .fitness-mode .edit-ctrls button.del{color:var(--bad);}
 .fitness-mode .add-ex{display:flex; gap:8px; margin-top:14px;}
@@ -441,6 +461,19 @@ html[data-theme='light'] .fitness-mode .session-sheet-date input{
 .fitness-mode .add-ex input:focus{outline:none; border-color:var(--accent);}
 .fitness-mode .add-ex button{background:radial-gradient(140% 160% at 20% -20%, #fff9ee, var(--accent) 70%); color:var(--accent-ink); border:none; border-radius:11px; padding:0 18px; font-family:var(--font-disp), Oswald, system-ui, sans-serif; font-weight:600; cursor:pointer;}
 .fitness-mode .edit-note{font-size:11px; color:#6a6d75; margin-top:12px; line-height:1.5;}
+.fitness-mode .summary-empty{padding:24px 8px; text-align:center; color:var(--text-dim); font-size:14px;}
+.fitness-mode .summary-group{margin-bottom:16px;}
+.fitness-mode .summary-group-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:8px;}
+.fitness-mode .summary-group-title{font-family:var(--font-disp), Oswald, system-ui, sans-serif; font-weight:600; font-size:15px; letter-spacing:0.4px;}
+.fitness-mode .summary-group-compare{display:block; margin-top:4px; font-size:12px; color:var(--text-dim); font-weight:400;}
+.fitness-mode .summary-group-compare.up{color:var(--good, #86efac);}
+.fitness-mode .summary-group-compare.down{color:var(--bad);}
+.fitness-mode .summary-ex-name-row{display:flex; flex-wrap:wrap; align-items:baseline; gap:8px;}
+.fitness-mode .summary-ex-name{font-weight:600; font-size:14px;}
+.fitness-mode .summary-ex-meta{font-size:12px; color:var(--text-dim); margin-top:4px;}
+.fitness-mode .summary-ex-target{font-size:12px; margin-top:6px; line-height:1.4;}
+.fitness-mode .history-day-row{cursor:pointer;}
+.fitness-mode .hist-edit{cursor:pointer; color:var(--accent); font-size:12px; font-weight:600; background:none; border:none; padding:0;}
 
 .fitness-mode .backup-copy{font-size:12px; color:var(--text-dim); line-height:1.6; margin-bottom:12px;}
 .fitness-mode .notif-row{display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); gap:12px;}
@@ -559,7 +592,8 @@ html[data-theme='light'] .fitness-mode .session-sheet-date input{
 .fitness-mode .history-day-del,
 .fitness-mode .history-day-edit{
   background:transparent; border:none; color:var(--text-dim); cursor:pointer;
-  width:34px; height:34px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:10px;
+  min-width:34px; height:34px; padding:0 8px; display:flex; align-items:center; justify-content:center; border-radius:10px;
+  font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;
 }
 .fitness-mode .history-day-del svg,
 .fitness-mode .history-day-edit svg{width:15px; height:15px; display:block;}

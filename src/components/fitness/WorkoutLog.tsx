@@ -2,10 +2,13 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { RestPill } from '@/components/fitness/RestPill';
+import { SessionEditSheet } from '@/components/fitness/SessionEditSheet';
 import {
   emptySet,
+  getLogTabs,
   getOrCreateSessionForDayType,
-  LOG_TABS,
+  labelForDayType,
+  listSessions,
   recentExerciseSessions,
   upsertSession,
 } from '@/lib/fitness-store';
@@ -31,23 +34,45 @@ const SET_TYPES: { id: SetType; label: string }[] = [
   { id: 'backoff', label: 'Back Off' },
 ];
 
-const TAB_STYLE: Record<(typeof LOG_TABS)[number], CSSProperties> = {
-  push: {
-    ['--tab-color' as string]: 'var(--push)',
-    ['--tab-glow' as string]: 'var(--push-glow)',
-    ['--tab-ink' as string]: '#1a1206',
-  },
-  pull: {
-    ['--tab-color' as string]: 'var(--pull)',
-    ['--tab-glow' as string]: 'var(--pull-glow)',
-    ['--tab-ink' as string]: '#062020',
-  },
-  legs: {
-    ['--tab-color' as string]: 'var(--legs)',
-    ['--tab-glow' as string]: 'var(--legs-glow)',
-    ['--tab-ink' as string]: '#160e2a',
-  },
-};
+function tabStyle(tab: string): CSSProperties {
+  if (tab === 'push') {
+    return {
+      ['--tab-color' as string]: 'var(--push)',
+      ['--tab-glow' as string]: 'var(--push-glow)',
+      ['--tab-ink' as string]: '#1a1206',
+    };
+  }
+  if (tab === 'pull') {
+    return {
+      ['--tab-color' as string]: 'var(--pull)',
+      ['--tab-glow' as string]: 'var(--pull-glow)',
+      ['--tab-ink' as string]: '#062020',
+    };
+  }
+  if (tab === 'legs') {
+    return {
+      ['--tab-color' as string]: 'var(--legs)',
+      ['--tab-glow' as string]: 'var(--legs-glow)',
+      ['--tab-ink' as string]: '#160e2a',
+    };
+  }
+  return {
+    ['--tab-color' as string]: 'var(--accent-user)',
+    ['--tab-glow' as string]: 'var(--accent-user-glow)',
+    ['--tab-ink' as string]: 'var(--accent-user-ink)',
+  };
+}
+
+function tabColor(day: DayType): string {
+  if (day === 'push') return 'var(--push)';
+  if (day === 'pull') return 'var(--pull)';
+  if (day === 'legs') return 'var(--legs)';
+  return 'var(--accent-user)';
+}
+
+function findSessionForHistory(date: string, dayType: DayType): WorkoutSession | null {
+  return listSessions().find((s) => s.date === date && s.dayType === dayType) ?? null;
+}
 
 type Props = {
   session: WorkoutSession;
@@ -57,30 +82,39 @@ type Props = {
 export function WorkoutLog({ session, onChange }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState<string | null>(null);
+  const [tabs, setTabs] = useState<string[]>(() =>
+    typeof window === 'undefined' ? ['push', 'pull', 'legs'] : getLogTabs(),
+  );
+  const [editing, setEditing] = useState<WorkoutSession | null>(null);
 
   const isCoachSession = session.source === 'ai' || session.dayType === 'custom';
 
-  const dayType = (
-    LOG_TABS.includes(session.dayType as (typeof LOG_TABS)[number])
-      ? session.dayType
-      : 'push'
-  ) as (typeof LOG_TABS)[number];
+  useEffect(() => {
+    const sync = () => setTabs(getLogTabs());
+    sync();
+    window.addEventListener('joebod-training-updated', sync);
+    return () => window.removeEventListener('joebod-training-updated', sync);
+  }, []);
+
+  const dayType = tabs.includes(session.dayType)
+    ? session.dayType
+    : tabs[0] || 'push';
 
   useEffect(() => {
     if (isCoachSession) return;
-    if (!LOG_TABS.includes(session.dayType as (typeof LOG_TABS)[number])) {
-      onChange(getOrCreateSessionForDayType('push'));
+    if (!tabs.includes(session.dayType) && tabs.length) {
+      onChange(getOrCreateSessionForDayType(tabs[0]));
     }
     // Intentionally depend on dayType only — parent setState identity may change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.dayType, session.source]);
+  }, [session.dayType, session.source, tabs.join('|')]);
 
   const persist = (next: WorkoutSession) => {
     upsertSession(next);
     onChange(next);
   };
 
-  const switchTab = (tab: (typeof LOG_TABS)[number]) => {
+  const switchTab = (tab: string) => {
     setOpenId(null);
     onChange(getOrCreateSessionForDayType(tab));
   };
@@ -128,9 +162,9 @@ export function WorkoutLog({ session, onChange }: Props) {
   };
 
   const stripPct = useMemo(() => {
-    const i = LOG_TABS.indexOf(dayType);
-    return ((i + 1) / LOG_TABS.length) * 100;
-  }, [dayType]);
+    const i = Math.max(0, tabs.indexOf(dayType));
+    return tabs.length ? ((i + 1) / tabs.length) * 100 : 100;
+  }, [dayType, tabs]);
 
   const unit = unitLabel(getFitnessPrefs().unit);
 
@@ -168,17 +202,17 @@ export function WorkoutLog({ session, onChange }: Props) {
       </div>
 
       <div className="tabs" role="tablist" aria-label="Training day">
-        {LOG_TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab}
             type="button"
             role="tab"
             aria-selected={!isCoachSession && dayType === tab}
             className={`tab${!isCoachSession && dayType === tab ? ' active' : ''}`}
-            style={!isCoachSession && dayType === tab ? TAB_STYLE[tab] : undefined}
+            style={!isCoachSession && dayType === tab ? tabStyle(tab) : undefined}
             onClick={() => switchTab(tab)}
           >
-            {tab}
+            {labelForDayType(tab)}
           </button>
         ))}
         {isCoachSession ? (
@@ -495,7 +529,16 @@ export function WorkoutLog({ session, onChange }: Props) {
                           .slice(0, 4)
                           .join(', ')}
                       </b>
-                      <span className="hist-edit">Edit</span>
+                      <button
+                        type="button"
+                        className="hist-edit"
+                        onClick={() => {
+                          const found = findSessionForHistory(h.date, session.dayType);
+                          if (found) setEditing(found);
+                        }}
+                      >
+                        Edit
+                      </button>
                     </div>
                   ))
                 )}
@@ -506,13 +549,17 @@ export function WorkoutLog({ session, onChange }: Props) {
       )}
 
       <RestPill />
+
+      {editing ? (
+        <SessionEditSheet
+          session={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(next) => {
+            if (session.id === next.id) onChange(next);
+            setEditing(null);
+          }}
+        />
+      ) : null}
     </div>
   );
-}
-
-function tabColor(day: DayType): string {
-  if (day === 'push') return 'var(--push)';
-  if (day === 'pull') return 'var(--pull)';
-  if (day === 'legs') return 'var(--legs)';
-  return 'var(--accent-user)';
 }

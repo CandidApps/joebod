@@ -31,6 +31,8 @@ const DAY_CSS: Record<string, { color: string; glow: string }> = {
   pull: { color: 'var(--pull)', glow: 'var(--pull-glow)' },
   legs: { color: 'var(--legs)', glow: 'var(--legs-glow)' },
   zone2: { color: 'var(--accent-user)', glow: 'var(--accent-user-glow)' },
+  cardio: { color: 'var(--accent-user)', glow: 'var(--accent-user-glow)' },
+  abs: { color: 'var(--accent-user)', glow: 'var(--accent-user-glow)' },
 };
 
 const PROFILE_ICON = (

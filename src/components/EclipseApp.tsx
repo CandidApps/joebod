@@ -4,11 +4,17 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { GoogleHealthConnectCard } from '@/components/GoogleHealthConnectCard';
 import { ClaudeCoachCard } from '@/components/ClaudeCoachCard';
-import { BrandMark, BRAND_VARIANTS, readBrandVariant, writeBrandVariant } from '@/components/BrandMark';
+import { BrandMark } from '@/components/BrandMark';
 import { InstallBanner } from '@/components/InstallBanner';
 import { FitnessDashboard } from '@/components/fitness/FitnessDashboard';
 import { WorkoutLog } from '@/components/fitness/WorkoutLog';
 import { CoachView } from '@/components/fitness/CoachView';
+import { TrainingSettings } from '@/components/fitness/TrainingSettings';
+import { AppearanceSettings } from '@/components/fitness/AppearanceSettings';
+import { BackupSettings } from '@/components/fitness/BackupSettings';
+import { WeightHistoryPanel } from '@/components/fitness/WeightHistoryPanel';
+import { SessionEditSheet } from '@/components/fitness/SessionEditSheet';
+import { WorkoutSummarySheet } from '@/components/fitness/WorkoutSummarySheet';
 import {
   deleteSession,
   getOrCreateTodaySession,
@@ -27,7 +33,9 @@ import {
   type FitnessPrefs,
   type WeightUnit,
 } from '@/lib/fitness-prefs';
+import { loadAppearanceColors } from '@/lib/appearance';
 import { startGoogleHealthLiveSync } from '@/lib/google-health/sync-client';
+import { todayKey } from '@/lib/storage';
 import type { FitnessTab, WorkoutSession } from '@/lib/types';
 import { formatDuration } from '@/lib/storage';
 
@@ -119,10 +127,13 @@ export function EclipseApp() {
       : getFitnessPrefs(),
   );
 
+  const [summaryDate, setSummaryDate] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     const boot = () => {
       try {
+        loadAppearanceColors();
         const next = getOrCreateTodaySession();
         if (!cancelled) {
           setSession(next);
@@ -206,17 +217,23 @@ export function EclipseApp() {
             }}
           />
         ) : tab === 'history' ? (
-          <HistoryView unit={prefs.unit} />
+          <HistoryView
+            unit={prefs.unit}
+            onOpenSummary={(date) => setSummaryDate(date)}
+            onSessionSaved={(next) => {
+              if (session.id === next.id) setSession(next);
+            }}
+          />
         ) : (
           <SettingsView prefs={prefs} onPrefs={setPrefs} />
         )}
 
-        {tab === 'log' ? (
+        {tab === 'log' || tab === 'dashboard' ? (
           <button
             type="button"
             className={`workout-count-badge corner-${prefs.badgeCorner}`}
-            aria-label={`${loggedCount} of ${totalExercises} exercises logged`}
-            onClick={() => setTab('log')}
+            aria-label={`${loggedCount} of ${totalExercises} exercises logged. Open workout summary.`}
+            onClick={() => setSummaryDate(todayKey())}
           >
             <svg className="wcb-ring" viewBox="0 0 54 54" aria-hidden>
               <circle className="wcb-ring-track" cx="27" cy="27" r="22" strokeWidth="3" />
@@ -232,6 +249,10 @@ export function EclipseApp() {
             </svg>
             <span className="wcb-num">{loggedCount}</span>
           </button>
+        ) : null}
+
+        {summaryDate ? (
+          <WorkoutSummarySheet dateIso={summaryDate} onClose={() => setSummaryDate(null)} />
         ) : null}
       </div>
 
@@ -254,14 +275,24 @@ export function EclipseApp() {
   );
 }
 
-function HistoryView({ unit }: { unit: WeightUnit }) {
+function HistoryView({
+  unit,
+  onOpenSummary,
+  onSessionSaved,
+}: {
+  unit: WeightUnit;
+  onOpenSummary: (date: string) => void;
+  onSessionSaved: (session: WorkoutSession) => void;
+}) {
   const [mode, setMode] = useState<'days' | 'exercise'>('days');
   const [tick, setTick] = useState(0);
+  const [editing, setEditing] = useState<WorkoutSession | null>(null);
   void tick;
 
   const sessions = listSessions().filter(isSessionLogged);
   const vol = volumeByDayTypeLastDays(sessions, 30);
-  const maxVol = Math.max(vol.push, vol.pull, vol.legs, 1);
+  const volEntries = Object.entries(vol).sort((a, b) => b[1] - a[1]);
+  const maxVol = Math.max(...volEntries.map(([, amt]) => amt), 1);
   const unitSuffix = unitLabel(unit);
 
   const byDate = useMemo(() => {
@@ -331,31 +362,41 @@ function HistoryView({ unit }: { unit: WeightUnit }) {
 
       <div className="section-title">Volume Balance · Last 30 Days</div>
       <div className="volume-block glass">
-        {(
-          [
-            ['push', 'Push', vol.push],
-            ['pull', 'Pull', vol.pull],
-            ['legs', 'Legs', vol.legs],
-          ] as const
-        ).map(([key, label, amt]) => (
-          <div key={key} className="vol-row">
-            <span className="vol-label" style={{ color: `var(--${key})` }}>
-              {label}
-            </span>
-            <div className="vol-track">
-              <div
-                className={`vol-fill ${key}`}
-                style={{ width: `${Math.max(4, (amt / maxVol) * 100)}%` }}
-              />
+        {volEntries.length === 0 ? (
+          <div className="edit-note">No logged volume yet.</div>
+        ) : (
+          volEntries.map(([key, amt]) => (
+            <div key={key} className="vol-row">
+              <span
+                className="vol-label"
+                style={{
+                  color:
+                    key === 'push' || key === 'pull' || key === 'legs'
+                      ? `var(--${key})`
+                      : 'var(--accent-user)',
+                }}
+              >
+                {labelForDayType(key)}
+              </span>
+              <div className="vol-track">
+                <div
+                  className={`vol-fill ${key === 'push' || key === 'pull' || key === 'legs' ? key : ''}`}
+                  style={{
+                    width: `${Math.max(4, (amt / maxVol) * 100)}%`,
+                    ...(key === 'push' || key === 'pull' || key === 'legs'
+                      ? {}
+                      : { background: 'var(--accent-user)' }),
+                  }}
+                />
+              </div>
+              <span className="vol-amt">
+                {amt.toLocaleString()} {unitSuffix}
+              </span>
             </div>
-            <span className="vol-amt">
-              {amt.toLocaleString()} {unitSuffix}
-            </span>
-          </div>
-        ))}
+          ))
+        )}
         <div className="vol-note">
-          Zone 2 / cardio: tracked separately on those days (time, not weight). Last 30 days lift volume
-          above.
+          Cardio / time-based work is tracked on those days. Lift volume for the last 30 days is above.
         </div>
       </div>
 
@@ -371,7 +412,16 @@ function HistoryView({ unit }: { unit: WeightUnit }) {
                 const volume = daySessions.reduce((n, s) => n + sessionVolumeLb(s), 0);
                 const duration = daySessions.reduce((n, s) => n + (s.durationSec || 0), 0);
                 return (
-                  <div key={date} className="history-day-row">
+                  <div
+                    key={date}
+                    className="history-day-row"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onOpenSummary(date)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') onOpenSummary(date);
+                    }}
+                  >
                     <div className="history-day-main">
                       <div className="history-day-date">{fmtShortDate(date)}</div>
                       <div className="history-day-types">{types.join(' + ')}</div>
@@ -387,9 +437,25 @@ function HistoryView({ unit }: { unit: WeightUnit }) {
                       </div>
                       <button
                         type="button"
+                        className="history-day-edit"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditing(daySessions[0]);
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
                         className="history-day-del"
                         aria-label={`Delete ${fmtShortDate(date)}`}
-                        onClick={() => removeDay(date, daySessions.map((s) => s.id))}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeDay(
+                            date,
+                            daySessions.map((s) => s.id),
+                          );
+                        }}
                       >
                         {ICON_TRASH}
                       </button>
@@ -426,6 +492,18 @@ function HistoryView({ unit }: { unit: WeightUnit }) {
           )}
         </>
       )}
+
+      {editing ? (
+        <SessionEditSheet
+          session={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(next) => {
+            onSessionSaved(next);
+            setTick((t) => t + 1);
+            setEditing(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -440,9 +518,6 @@ function SettingsView({
   onPrefs: (p: FitnessPrefs) => void;
 }) {
   const [panel, setPanel] = useState<SettingsPanel>('general');
-  const [variant, setVariant] = useState(() =>
-    typeof window === 'undefined' ? ('gradient' as const) : readBrandVariant(),
-  );
   const [goals, setGoals] = useState<FitnessGoalsState>(() =>
     typeof window === 'undefined' ? { primary: null, secondary: [] } : getFitnessGoals(),
   );
@@ -581,96 +656,45 @@ function SettingsView({
         </>
       ) : null}
 
-      {panel === 'training' ? (
-        <div className="settings-block glass">
-          <div className="settings-block-title">Training</div>
-          <div className="edit-note">
-            Split and schedule editing is available from Home and Log as you train. More training
-            controls will land here as JOEbod grows.
-          </div>
-        </div>
-      ) : null}
+      {panel === 'training' ? <TrainingSettings /> : null}
 
       {panel === 'goals' ? (
-        <div className="settings-block glass">
-          <div className="settings-block-title">Fitness Goals</div>
-          <div className="edit-note" style={{ marginBottom: 12 }}>
-            Tap once to set as primary goal. Tap any other to add as secondary. Tap again to remove.
-          </div>
-          <div>
-            {FITNESS_GOALS.map((g) => {
-              const isPrimary = goals.primary === g.id;
-              const isSecondary = goals.secondary.includes(g.id);
-              return (
-                <button
-                  key={g.id}
-                  type="button"
-                  className={`goal-opt${isPrimary ? ' goal-primary' : ''}${isSecondary ? ' goal-secondary' : ''}`}
-                  style={{ width: '100%', textAlign: 'left', border: '1px solid var(--border)', marginBottom: 8 }}
-                  onClick={() => setGoals(toggleFitnessGoal(g.id))}
-                >
-                  <div className="goal-opt-text">
-                    <span className="goal-opt-label">{g.label}</span>
-                    <span className="goal-opt-desc">{g.desc}</span>
-                  </div>
-                  {isPrimary ? <span className="goal-badge primary">Primary</span> : null}
-                  {isSecondary ? <span className="goal-badge secondary">Secondary</span> : null}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
-
-      {panel === 'appearance' ? (
         <>
           <div className="settings-block glass">
-            <div className="settings-block-title">Logo variants</div>
+            <div className="settings-block-title">Fitness Goals</div>
             <div className="edit-note" style={{ marginBottom: 12 }}>
-              Pick a JOEbod look for the brand mark elsewhere in the app.
+              Tap once to set as primary goal. Tap any other to add as secondary. Tap again to remove.
             </div>
-            <div className="logo-grid">
-              {BRAND_VARIANTS.map((v) => (
-                <button
-                  key={v.id}
-                  type="button"
-                  className={`logo-pick${variant === v.id ? ' active' : ''}`}
-                  onClick={() => {
-                    writeBrandVariant(v.id);
-                    setVariant(v.id);
-                  }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={v.logo} alt={v.label} />
-                  <div className="logo-pick-meta">
-                    <strong>{v.label}</strong>
-                    <span>{v.note}</span>
-                  </div>
-                  <div className="logo-pick-live">
-                    <BrandMark variant={v.id} underline />
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="settings-block glass">
-            <div className="settings-block-title">Appearance</div>
-            <div className="edit-note">
-              Use Light / Dark in the top-right on any screen. Your choice is saved on this device.
+            <div>
+              {FITNESS_GOALS.map((g) => {
+                const isPrimary = goals.primary === g.id;
+                const isSecondary = goals.secondary.includes(g.id);
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    className={`goal-opt${isPrimary ? ' goal-primary' : ''}${isSecondary ? ' goal-secondary' : ''}`}
+                    style={{ width: '100%', textAlign: 'left', border: '1px solid var(--border)', marginBottom: 8 }}
+                    onClick={() => setGoals(toggleFitnessGoal(g.id))}
+                  >
+                    <div className="goal-opt-text">
+                      <span className="goal-opt-label">{g.label}</span>
+                      <span className="goal-opt-desc">{g.desc}</span>
+                    </div>
+                    {isPrimary ? <span className="goal-badge primary">Primary</span> : null}
+                    {isSecondary ? <span className="goal-badge secondary">Secondary</span> : null}
+                  </button>
+                );
+              })}
             </div>
           </div>
+          <WeightHistoryPanel />
         </>
       ) : null}
 
-      {panel === 'backup' ? (
-        <div className="settings-block glass">
-          <div className="settings-block-title">Backup &amp; Restore</div>
-          <div className="edit-note">
-            Your logs stay on this device. Export / import tools will land here so you can keep a
-            portable copy of workouts.
-          </div>
-        </div>
-      ) : null}
+      {panel === 'appearance' ? <AppearanceSettings /> : null}
+
+      {panel === 'backup' ? <BackupSettings /> : null}
     </div>
   );
 }

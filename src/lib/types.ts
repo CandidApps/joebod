@@ -1,6 +1,7 @@
 export type FitnessTab = 'dashboard' | 'log' | 'coach' | 'history' | 'settings';
 
-export type DayType = 'push' | 'pull' | 'legs' | 'zone2' | 'rest' | 'custom';
+/** Day-type keys from splits/addons; string keeps Coach custom + future types flexible. */
+export type DayType = string;
 
 export type SetType = 'working' | 'warmup' | 'drop' | 'failure' | 'backoff';
 
